@@ -27,11 +27,13 @@ def handle_client_message(sid, data):
     elif data['type'] == 'joinGame':
         join_game(sid)
     elif data['type'] == 'startGame':
-        start_game(sid)
+        start_game(find_game_by_player(sid))
     elif data['type'] == 'playCard':
         play_card(sid, data)
     elif data['type'] == 'takeCards':
         take_cards(sid)
+    elif data['type'] == 'getHand':
+        get_hand(sid)
     else:
         emit_error(sid, 'Invalid message type')
 
@@ -185,6 +187,20 @@ def check_game_end(game):
     remaining_players = [player for player in game['players'] if player['hand']]
     if len(remaining_players) <= 1:
         emit('message', {'type': 'gameEnd', 'winner': remaining_players[0]['id'] if remaining_players else None}, room=game['gameId'])
+
+def get_hand(sid):
+    game_id = find_game_by_player(sid)
+    if not game_id:
+        emit_error(sid, 'You are not in a game')
+        return
+
+    game = games[game_id]
+    player = next((p for p in game['players'] if p['sid'] == sid), None)
+    if not player:
+        emit_error(sid, 'Player not found')
+        return
+
+    emit('message', {'type': 'hand', 'hand': player['hand']}, room=sid)
 
 def create_deck():
     suits = ['hearts', 'diamonds', 'clubs', 'spades']
