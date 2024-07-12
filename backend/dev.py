@@ -25,6 +25,19 @@ def post_data():
     response = {"received": received_data}
     return jsonify(response), 201
 
+## это апи для поиска комнаты
+@app.route('/api/find_room', methods=['GET'])
+def find_room():
+    sid = request.args.get('sid')
+    room_id = find_or_create_room(sid)
+    if room_id:
+        socketio.emit('message', {'type': 'gameCreated', 'gameId': room_id}, room=sid)
+        return jsonify({"roomId": room_id})
+    return jsonify({"error": "Could not find or create a room"}), 500
+
+
+
+
 @socketio.on('connect')
 def handle_connect():
     emit('message', {'type': 'connected', 'message': 'Welcome to Durak Online!'})
@@ -50,6 +63,14 @@ def handle_client_message(sid, data):
     else:
         emit_error(sid, 'Invalid message type')
 
+def find_or_create_room(sid):
+    for game_id, game in games.items():
+        if len(game['players']) < 2:
+            join_game_with_id(sid, game_id)
+            return game_id
+    return create_game(sid)
+
+
 def find_game_by_player(sid):
     for game_id, game in games.items():
         for player in game['players']:
@@ -71,7 +92,7 @@ def create_game(sid):
         'turn': 0,
         'gameId': game_id
     }
-    emit('message', {'type': 'gameCreated', 'gameId': game_id}, room=sid)
+    return game_id
 
 def join_game(sid):
     for game in games.values():
@@ -82,6 +103,15 @@ def join_game(sid):
                 start_game(game['gameId'])
             return
     create_game(sid)
+
+def join_game_with_id(sid, game_id):
+    game = games.get(game_id)
+    if game and len(game['players']) < 2:
+        game['players'].append({'sid': sid, 'id': str(uuid4()), 'hand': [], 'isDefender': False})
+        socketio.emit('message', {'type': 'joinedGame', 'gameId': game['gameId']}, room=sid)
+        if len(game['players']) == 2:
+            start_game(game_id)
+
 
 def start_game(game_id):
     game = games.get(game_id)
