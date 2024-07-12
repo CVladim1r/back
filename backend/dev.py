@@ -1,9 +1,11 @@
 from flask import Flask, jsonify, request
 from flask_socketio import SocketIO, emit
+from flask_cors import CORS
 import random
 from uuid import uuid4
 
 app = Flask(__name__)
+CORS(app)  # Разрешаем CORS для всех доменов
 socketio = SocketIO(app, cors_allowed_origins='*')
 
 games = {}
@@ -11,6 +13,17 @@ games = {}
 @app.route('/')
 def index():
     return "Server is running"
+
+@app.route('/api/data', methods=['GET'])
+def get_data():
+    data = {"message": "Hello from backend"}
+    return jsonify(data)
+
+@app.route('/api/data', methods=['POST'])
+def post_data():
+    received_data = request.json
+    response = {"received": received_data}
+    return jsonify(response), 201
 
 @socketio.on('connect')
 def handle_connect():
@@ -68,7 +81,6 @@ def join_game(sid):
             if len(game['players']) == 2:
                 start_game(game['gameId'])
             return
-
     create_game(sid)
 
 def start_game(game_id):

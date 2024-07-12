@@ -1,7 +1,7 @@
 import unittest
 from flask import Flask
 from flask_socketio import SocketIO, emit
-from dev import app, socketio, games
+from backend.dev import app, socketio, games
 
 class TestDurakGame(unittest.TestCase):
 
