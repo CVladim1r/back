@@ -3,9 +3,10 @@ from flask_socketio import SocketIO, emit
 from flask_cors import CORS
 import random
 from uuid import uuid4
+import threading
 
 app = Flask(__name__)
-CORS(app)  # Разрешаем CORS для всех доменов
+CORS(app)
 socketio = SocketIO(app, cors_allowed_origins='*')
 
 games = {}
@@ -25,7 +26,6 @@ def post_data():
     response = {"received": received_data}
     return jsonify(response), 201
 
-## это апи для поиска комнаты
 @app.route('/api/find_room', methods=['GET'])
 def find_room():
     sid = request.args.get('sid')
@@ -34,9 +34,6 @@ def find_room():
         socketio.emit('message', {'type': 'gameCreated', 'gameId': room_id}, room=sid)
         return jsonify({"roomId": room_id})
     return jsonify({"error": "Could not find or create a room"}), 500
-
-
-
 
 @socketio.on('connect')
 def handle_connect():
@@ -47,29 +44,38 @@ def handle_message(message):
     data = message
     handle_client_message(request.sid, data)
 
+@socketio.on('inviteFriend')
+def on_invite_friend(data):
+    game_id = data.get('gameId')
+    friend_sid = data.get('friendSid')
+    invite_friend(game_id, friend_sid)
+
 def handle_client_message(sid, data):
-    if data['type'] == 'createGame':
-        create_game(sid)
-    elif data['type'] == 'joinGame':
-        join_game(sid)
-    elif data['type'] == 'startGame':
-        start_game(find_game_by_player(sid))
-    elif data['type'] == 'playCard':
-        play_card(sid, data)
-    elif data['type'] == 'takeCards':
-        take_cards(sid)
-    elif data['type'] == 'getHand':
-        get_hand(sid)
+    message_handlers = {
+        'createGame': create_room,
+        'joinGame': join_game,
+        'startGame': lambda sid: start_game(find_game_by_player(sid)),
+        'playCard': play_card,
+        'takeCards': take_cards,
+        'getHand': get_hand
+    }
+    
+    handler = message_handlers.get(data['type'])
+    if handler:
+        if data['type'] == 'playCard':
+            handler(sid, data)
+        else:
+            handler(sid)
     else:
         emit_error(sid, 'Invalid message type')
+
 
 def find_or_create_room(sid):
     for game_id, game in games.items():
         if len(game['players']) < 2:
             join_game_with_id(sid, game_id)
             return game_id
-    return create_game(sid)
-
+    return create_room(sid)
 
 def find_game_by_player(sid):
     for game_id, game in games.items():
@@ -81,7 +87,7 @@ def find_game_by_player(sid):
 def emit_error(sid, message):
     emit('message', {'type': 'error', 'message': message}, room=sid)
 
-def create_game(sid):
+def create_room(sid):
     game_id = str(uuid4())
     games[game_id] = {
         'players': [{'sid': sid, 'id': str(uuid4()), 'hand': [], 'isDefender': False}],
@@ -92,26 +98,31 @@ def create_game(sid):
         'turn': 0,
         'gameId': game_id
     }
+    emit('message', {'type': 'gameCreated', 'gameId': game_id}, room=sid)
     return game_id
 
-def join_game(sid):
-    for game in games.values():
-        if len(game['players']) < 2:
-            game['players'].append({'sid': sid, 'id': str(uuid4()), 'hand': [], 'isDefender': False})
-            emit('message', {'type': 'joinedGame', 'gameId': game['gameId']}, room=sid)
-            if len(game['players']) == 2:
-                start_game(game['gameId'])
-            return
-    create_game(sid)
 
-def join_game_with_id(sid, game_id):
+def invite_friend(game_id, friend_sid):
     game = games.get(game_id)
-    if game and len(game['players']) < 2:
-        game['players'].append({'sid': sid, 'id': str(uuid4()), 'hand': [], 'isDefender': False})
-        socketio.emit('message', {'type': 'joinedGame', 'gameId': game['gameId']}, room=sid)
-        if len(game['players']) == 2:
-            start_game(game_id)
+    if not game:
+        emit_error(friend_sid, 'Game not found')
+        return
+    if len(game['players']) >= 2:
+        emit_error(friend_sid, 'Game is full')
+        return
 
+    game['players'].append({'sid': friend_sid, 'id': str(uuid4()), 'hand': [], 'isDefender': False})
+    emit('message', {'type': 'invited', 'gameId': game_id}, room=friend_sid)
+    if len(game['players']) == 2:
+        start_game_with_delay(game_id)
+
+def start_game_with_delay(game_id):
+    game = games.get(game_id)
+    if not game:
+        return
+
+    emit('message', {'type': 'gameStarting', 'delay': 5}, room=game_id)
+    threading.Timer(5.0, start_game, args=[game_id]).start()
 
 def start_game(game_id):
     game = games.get(game_id)
@@ -123,6 +134,7 @@ def start_game(game_id):
         game['deck'] = game['deck'][6:]
 
     game['trumpCard'] = game['deck'].pop()
+    game['deck'].append(game['trumpCard'])  # Trump card goes to the bottom of the deck
     game['players'][0]['isDefender'] = True
 
     emit('message', {
@@ -132,6 +144,24 @@ def start_game(game_id):
     }, room=game_id)
 
     next_turn(game_id)
+
+def join_game(sid):
+    for game in games.values():
+        if len(game['players']) < 2:
+            game['players'].append({'sid': sid, 'id': str(uuid4()), 'hand': [], 'isDefender': False})
+            emit('message', {'type': 'joinedGame', 'gameId': game['gameId']}, room=sid)
+            if len(game['players']) == 2:
+                start_game_with_delay(game['gameId'])
+            return
+    create_room(sid)
+
+def join_game_with_id(sid, game_id):
+    game = games.get(game_id)
+    if game and len(game['players']) < 2:
+        game['players'].append({'sid': sid, 'id': str(uuid4()), 'hand': [], 'isDefender': False})
+        socketio.emit('message', {'type': 'joinedGame', 'gameId': game['gameId']}, room=sid)
+        if len(game['players']) == 2:
+            start_game_with_delay(game_id)
 
 def play_card(sid, data):
     game_id = find_game_by_player(sid)
@@ -212,23 +242,14 @@ def next_turn(game_id):
                 game['table'] = []
         else:
             game['turn'] = (game['turn'] + 1) % len(game['players'])
+            game['players'][game['turn']]['isDefender'] = True
 
-    refill_hands(game)
-    emit('message', {'type': 'turn', 'playerId': game['players'][game['turn']]['id']}, room=game_id)
-    check_game_end(game)
+    emit('message', {'type': 'nextTurn', 'turn': game['turn'], 'playerId': game['players'][game['turn']]['id']}, room=game_id)
 
 def is_defense_successful(table, trump_card):
-    return len(table) % 2 == 0
-
-def refill_hands(game):
-    for player in game['players']:
-        while len(player['hand']) < 6 and game['deck']:
-            player['hand'].append(game['deck'].pop())
-
-def check_game_end(game):
-    remaining_players = [player for player in game['players'] if player['hand']]
-    if len(remaining_players) <= 1:
-        emit('message', {'type': 'gameEnd', 'winner': remaining_players[0]['id'] if remaining_players else None}, room=game['gameId'])
+    defending_cards = [card for card in table if card['suit'] == trump_card['suit']]
+    attacking_cards = [card for card in table if card['suit'] != trump_card['suit']]
+    return len(defending_cards) >= len(attacking_cards)
 
 def get_hand(sid):
     game_id = find_game_by_player(sid)
@@ -246,25 +267,16 @@ def get_hand(sid):
 
 def create_deck():
     suits = ['hearts', 'diamonds', 'clubs', 'spades']
-    ranks = [6, 7, 8, 9, 10, 'J', 'Q', 'K', 'A']
-    deck = [{'suit': suit, 'rank': rank} for suit in suits for rank in ranks]
-    return deck
+    ranks = ['6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A']
+    return [{'suit': suit, 'rank': rank} for suit in suits for rank in ranks]
 
 def shuffle_deck(deck):
     random.shuffle(deck)
     return deck
 
 def get_card_value(rank):
-    if rank == 'J':
-        return 11
-    elif rank == 'Q':
-        return 12
-    elif rank == 'K':
-        return 13
-    elif rank == 'A':
-        return 14
-    else:
-        return rank
+    values = {'6': 1, '7': 2, '8': 3, '9': 4, '10': 5, 'J': 6, 'Q': 7, 'K': 8, 'A': 9}
+    return values[rank]
 
 if __name__ == '__main__':
-    socketio.run(app, port=8080, debug=True)
+    socketio.run(app, host='0.0.0.0', port=5000)
