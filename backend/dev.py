@@ -1,13 +1,14 @@
 from flask import Flask, jsonify, request
 from flask_socketio import SocketIO, emit
 from flask_cors import CORS
-import random
 from uuid import uuid4
 import threading
+import random
+import json
 
 app = Flask(__name__)
+socketio = SocketIO(app)
 CORS(app)
-socketio = SocketIO(app, cors_allowed_origins='*')
 
 games = {}
 
@@ -37,12 +38,18 @@ def find_room():
 
 @socketio.on('connect')
 def handle_connect():
+    sid = request.args.get('sid')
+    if sid:
+        print(f"Client connected with sid: {sid}")
+    else:
+        print("Client connected without sid")
+
     emit('message', {'type': 'connected', 'message': 'Welcome to Durak Online!'})
 
 @socketio.on('message')
-def handle_message(message):
-    data = message
-    handle_client_message(request.sid, data)
+def handle_message(msg):
+    print('Received message:', msg)
+    socketio.emit('message', msg, broadcast=True)
 
 @socketio.on('inviteFriend')
 def on_invite_friend(data):
@@ -60,7 +67,7 @@ def handle_client_message(sid, data):
         'getHand': get_hand
     }
     
-    handler = message_handlers.get(data['type'])
+    handler = message_handlers.get(data.get('type'))
     if handler:
         if data['type'] == 'playCard':
             handler(sid, data)
@@ -69,13 +76,13 @@ def handle_client_message(sid, data):
     else:
         emit_error(sid, 'Invalid message type')
 
-
 def find_or_create_room(sid):
     for game_id, game in games.items():
         if len(game['players']) < 2:
             join_game_with_id(sid, game_id)
             return game_id
     return create_room(sid)
+
 
 def find_game_by_player(sid):
     for game_id, game in games.items():
@@ -279,4 +286,4 @@ def get_card_value(rank):
     return values[rank]
 
 if __name__ == '__main__':
-    socketio.run(app, host='0.0.0.0', port=5000)
+    socketio.run(app, debug=True)
