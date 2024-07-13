@@ -1,0 +1,7 @@
+__pycache__
+
+durak-frontend/node_modules
+
+venv/
+
+node_modules/
