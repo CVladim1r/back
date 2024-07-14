@@ -1,6 +1,5 @@
 import './App.css';
 import React from 'react';
-import {AreaChart, CartesianGrid, Area, XAxis, YAxis} from 'recharts'
 
 
 class App extends React.Component {
@@ -40,20 +39,9 @@ class App extends React.Component {
       <div className="App">
         <header className="App-header">
           <h2>
-            WebSocket Example
+            WebSocket
           </h2>
-          <AreaChart width={900} height={600} data={this.state.data}>
-            <defs>
-              <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#33ff33" stopOpacity={0.8}/>
-                <stop offset="95%" stopColor="#33ff33" stopOpacity={0}/>
-              </linearGradient>
-            </defs>
-            <XAxis dataKey="index" />
-            <YAxis />
-            <CartesianGrid stroke="#666" strokeDasharray="5 5" />
-            <Area type="monotone" dataKey="value" stroke="#33ff33" fill="url(#colorValue)" isAnimationActive={false}/>
-          </AreaChart>
+
         </header>
       </div>
     )
