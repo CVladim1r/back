@@ -10,10 +10,10 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173/"],
+    allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["http://localhost:5173/"],
-    allow_headers=["http://localhost:5173/"],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 games = {}
@@ -21,17 +21,6 @@ games = {}
 @app.get("/")
 async def index():
     return {"message": "Server is running"}
-
-@app.get("/api/data")
-async def get_data():
-    data = {"message": "Hello from backend"}
-    return JSONResponse(content=data)
-
-@app.post("/api/data")
-async def post_data(request: Request):
-    received_data = await request.json()
-    response = {"received": received_data}
-    return JSONResponse(content=response, status_code=201)
 
 @app.get("/api/find_room")
 async def find_room(sid: str):
@@ -311,4 +300,4 @@ def get_card_value(rank):
     return values[rank]
 
 if __name__ == '__main__':
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    uvicorn.run(app, port=8000)
