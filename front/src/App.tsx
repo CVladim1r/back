@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import Connection from './components/Connection';
 import Game from './components/Game';
+import './App.css';
 
 const App: React.FC = () => {
     const [connected, setConnected] = useState<boolean>(false);
