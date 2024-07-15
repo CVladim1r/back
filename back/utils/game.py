@@ -2,8 +2,6 @@
 
 import random
 from typing import List, Dict, Any
-import asyncio
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 class Card:
     def __init__(self, suit: str, rank: str):
@@ -17,8 +15,6 @@ class Player:
     def __init__(self, sid: str):
         self.sid = sid
         self.hand = []
-        self.websocket = None
-
 
     def dict(self):
         return {"sid": self.sid, "hand": [card.dict() for card in self.hand]}
@@ -40,54 +36,6 @@ class Room:
         self.deck = [Card(suit, rank) for suit in suits for rank in ranks]
         random.shuffle(self.deck)
 
-class Game:
-    def __init__(self):
-        self.players: List[Player] = []
-        self.deck = []
-        self.trump_card = None
-        self.current_turn = None
-        self.attacking_player = None
-        self.defending_player = None
-        self.active_cards = []
-        self.winner = None
-
-    async def notify_players(self, message: Dict[str, Any]):
-        for player in self.players:
-            if player.websocket:
-                await player.websocket.send_json(message)
-
-    async def start_game(self):
-        await self.notify_players({"action": "starting", "timer": 3})
-        
-        self.deck = self.create_deck()
-        random.shuffle(self.deck)
-        self.trump_card = self.deck.pop()
-        for player in self.players:
-            player.hand = [self.deck.pop() for _ in range(6)]
-        
-        self.attacking_player = random.choice(self.players).sid
-        self.defending_player = [p for p in self.players if p.sid != self.attacking_player][0].sid
-        self.current_turn = self.attacking_player
-
-        await self.notify_players(self.get_game_state())
-
-    def create_deck(self):
-        suits = ["hearts", "diamonds", "clubs", "spades"]
-        ranks = ["6", "7", "8", "9", "10", "J", "Q", "K", "A"]
-        return [{"suit": suit, "rank": rank} for suit in suits for rank in ranks]
-
-    def get_game_state(self):
-        return {
-            "players": [{"sid": player.sid, "hand": player.hand} for player in self.players],
-            "trump_card": self.trump_card,
-            "current_turn": self.current_turn,
-            "attacking_player": self.attacking_player,
-            "defending_player": self.defending_player,
-            "active_cards": self.active_cards,
-            "winner": self.winner
-        }
-
-
 rooms: Dict[str, Room] = {}
 
 def create_room(room_id: str):
@@ -106,7 +54,10 @@ def add_player(room_id: str, player_sid: str) -> Player:
 def start_game(room_id: str):
     room = rooms[room_id]
     room.trump_card = room.deck.pop()
-    room.deck.insert(0, room.trump_card)  # Ensure the trump card is the last in the deck
+    room.deck.insert(0, room.trump_card)
+    room.current_turn = room.players[0].sid
+    room.attacking_player = room.players[0].sid
+    room.defending_player = room.players[1].sid
 
 def deal_cards(room_id: str):
     room = rooms[room_id]
@@ -115,21 +66,45 @@ def deal_cards(room_id: str):
             player.hand.append(room.deck.pop())
 
 def play_card(room_id: str, player_sid: str, card_index: int) -> bool:
-    # Implement play card logic
+    room = rooms[room_id]
+    player = next(p for p in room.players if p.sid == player_sid)
+    if room.current_turn != player_sid or card_index >= len(player.hand):
+        return False
+    card = player.hand.pop(card_index)
+    room.active_cards.append(card)
+    room.current_turn = room.defending_player if room.current_turn == room.attacking_player else room.attacking_player
     return True
 
 def defend_move(room_id: str, player_sid: str, card_index: int) -> bool:
-    # Implement defend move logic
+    room = rooms[room_id]
+    player = next(p for p in room.players if p.sid == player_sid)
+    if room.current_turn != player_sid or card_index >= len(player.hand):
+        return False
+    card = player.hand.pop(card_index)
+    if card.suit != room.active_cards[-1].suit and card.suit != room.trump_card.suit:
+        return False
+    if card.rank <= room.active_cards[-1].rank:
+        return False
+    room.active_cards.append(card)
+    room.current_turn = room.attacking_player
     return True
 
 def check_win_condition(room_id: str) -> str:
-    # Implement win condition check logic
+    room = rooms[room_id]
+    for player in room.players:
+        if len(player.hand) == 0:
+            return player.sid
     return ""
 
-# Functions to handle client messages and notify players
-async def handle_client_message(websocket: WebSocket, player_sid: str, data: Dict[str, Any]):
-    pass
-
 async def notify_players(room_id: str):
-    game = rooms[room_id]
-    await game.notify_players(game.get_game_state())
+    if room_id in rooms:
+        game_state = {
+            'players': [player.dict() for player in rooms[room_id].players],
+            'trump_card': rooms[room_id].trump_card.dict() if rooms[room_id].trump_card else None,
+            'current_turn': rooms[room_id].current_turn,
+            'attacking_player': rooms[room_id].attacking_player,
+            'defending_player': rooms[room_id].defending_player,
+            'active_cards': [card.dict() for card in rooms[room_id].active_cards]
+        }
+        for player in rooms[room_id].players:
+            await player.websocket.send_json(game_state)

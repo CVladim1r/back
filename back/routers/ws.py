@@ -28,7 +28,7 @@ async def handle_connection(room_id: str, player_sid: str, websocket: WebSocket)
 
     if len(rooms[room_id].players) == 2:
         start_game(room_id)
-        deal_cards(room_id)  # Deal cards to players
+        deal_cards(room_id)
         await notify_players(room_id)
 
     await notify_players(room_id)
