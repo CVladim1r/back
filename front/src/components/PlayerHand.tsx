@@ -1,6 +1,6 @@
 import React from 'react';
-import { Card as CardInterface, Player } from '../interfaces';
-import Card from './Card';
+import { Card as CardInterface } from '../interfaces';
+import Card from './CardComponent';
 
 interface PlayerHandProps {
   hand: CardInterface[];

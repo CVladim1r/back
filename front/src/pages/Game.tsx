@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
-import PlayerHand from '../components/PlayerHand';
+import Card from '../components/CardComponent';
 import Deck from '../components/Deck';
-import Card from '../components/Card';
+import PlayerHand from '../components/PlayerHand';
 
 interface LocationState {
   sid: string;
