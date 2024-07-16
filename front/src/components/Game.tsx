@@ -1,122 +1,98 @@
 // src/components/Game.tsx
-
 import React, { useState, useEffect } from 'react';
 import WebSocketService from '../api/ws';
-
-interface Card {
-    suit: string;
-    rank: string;
-}
-
-interface Player {
-    sid: string;
-    hand: Card[];
-}
-
-interface GameState {
-    players: Player[];
-    trump_card: Card;
-    current_turn: string;
-    attacking_player: string;
-    defending_player: string;
-    active_cards: Card[];
-    winner?: string;
-}
+import PlayerHand from './PlayerHand';
+import Table from './Table';
+import Card from './Card';
+import { Card as CardInterface, Game as GameInterface } from '../types';
 
 const Game: React.FC<{ roomId: string; playerSid: string }> = ({ roomId, playerSid }) => {
-    const [connected, setConnected] = useState<boolean>(false);
-    const [gameState, setGameState] = useState<GameState | null>(null);
-    const [timer, setTimer] = useState<number | null>(null);
+  const [connected, setConnected] = useState(false);
+  const [game, setGame] = useState<GameInterface | null>(null);
+  const [hand, setHand] = useState<CardInterface[]>([]);
 
-    useEffect(() => {
-        const handleOpen = () => {
-            setConnected(true);
-        };
+  useEffect(() => {
+    const ws = WebSocketService;
 
-        const handleClose = () => {
-            setConnected(false);
-        };
+    ws.connect(roomId, playerSid);
 
-        const handleMessage = (data: any) => {
-            if (data.action === 'starting') {
-                setTimer(data.timer);
-                const countdown = setInterval(() => {
-                    setTimer(prevTimer => {
-                        if (prevTimer === 1) {
-                            clearInterval(countdown);
-                            setTimer(null);
-                        }
-                        return prevTimer ? prevTimer - 1 : null;
-                    });
-                }, 1000);
-            } else {
-                setGameState(data);
-            }
-        };
+    ws.on('open', () => {
+      setConnected(true);
+    });
 
-        WebSocketService.on('open', handleOpen);
-        WebSocketService.on('close', handleClose);
-        WebSocketService.on('message', handleMessage);
+    ws.on('close', () => {
+      setConnected(false);
+    });
 
-        WebSocketService.connect(roomId, playerSid);
+    ws.on('message', (data: any) => {
+      if (data.players) {
+        const currentPlayer = data.players.find((player: any) => player.sid === playerSid);
+        setHand(currentPlayer.hand);
+      }
+      setGame(data);
+    });
 
-        return () => {
-            WebSocketService.off('open', handleOpen);
-            WebSocketService.off('close', handleClose);
-            WebSocketService.off('message', handleMessage);
-        };
-    }, [roomId, playerSid]);
+    ws.on('error', (error: any) => {
+      console.error('WebSocket error:', error);
+    });
 
-    const renderCard = (card: Card) => (
-        <div className="card">
-            <div className="rank">{card.rank}</div>
-            <div className="suit">{card.suit}</div>
-        </div>
-    );
+    return () => {
+      ws.off('open', () => setConnected(true));
+      ws.off('close', () => setConnected(false));
+      ws.off('message', (data: any) => {
+        if (data.players) {
+          const currentPlayer = data.players.find((player: any) => player.sid === playerSid);
+          setHand(currentPlayer.hand);
+        }
+        setGame(data);
+      });
+      ws.off('error', (error: any) => console.error('WebSocket error:', error));
+    };
+  }, [roomId, playerSid]);
 
-    const getPlayer = () => gameState?.players.find(player => player.sid === playerSid);
-    const getOpponent = () => gameState?.players.find(player => player.sid !== playerSid);
+  const playCard = (card: CardInterface) => {
+    if (game && game.current_turn === playerSid) {
+      const message = {
+        action: 'playCard',
+        cardId: card.id,
+      };
+      WebSocketService.send(message);
+    }
+  };
 
-    return (
-        <div className="game">
-            <h1>Durak Online</h1>
-            {connected ? (
-                <div>
-                    <h2>Connected as {playerSid}</h2>
-                    {timer !== null ? (
-                        <div>
-                            <h2>Game starting in {timer} seconds...</h2>
-                        </div>
-                    ) : gameState && (
-                        <div className="game-state">
-                            <div className="trump-card">
-                                <h3>Trump Card</h3>
-                                {renderCard(gameState.trump_card)}
-                            </div>
-                            <div className="players">
-                                <div className="player">
-                                    <h3>Your Hand</h3>
-                                    <div className="hand">
-                                        {getPlayer()?.hand.map(renderCard)}
-                                    </div>
-                                </div>
-                                <div className="opponent">
-                                    <h3>Opponent's Hand</h3>
-                                    <div className="hand">
-                                        {getOpponent() && Array(getOpponent()?.hand.length).fill(<div className="card-back"></div>)}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                </div>
-            ) : (
-                <div>
-                    <h2>Connecting...</h2>
-                </div>
-            )}
-        </div>
-    );
+  if (!connected) {
+    return <div>Connecting...</div>;
+  }
+
+  if (!game) {
+    return <div>Loading game data...</div>;
+  }
+
+  return (
+    <div className="game">
+      <h1>Game Room: {roomId}</h1>
+      <div className="trump-card">
+        <h2>Trump Card</h2>
+        {game.trump_card && <Card card={game.trump_card} />}
+      </div>
+      <div className="deck">
+        <h2>Deck</h2>
+        {/* Display deck count or deck component */}
+      </div>
+      <div className="players">
+        {game.players.map((player) => (
+          <div key={player.sid} className={`player ${player.sid === playerSid ? 'current' : ''}`}>
+            <h3>{player.sid === playerSid ? 'You' : `Player ${player.sid}`}</h3>
+            <PlayerHand hand={player.hand} playCard={playCard} />
+          </div>
+        ))}
+      </div>
+      <div className="active-cards">
+        <h2>Active Cards</h2>
+        <Table cards={game.active_cards} onCardDrop={(cardId) => playCard({ id: cardId, rank: 0, type: '', img: '' })} />
+      </div>
+    </div>
+  );
 };
 
 export default Game;

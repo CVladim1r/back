@@ -9,13 +9,39 @@ router = APIRouter()
 websockets = {}
 
 @router.websocket("/{room_id}/{player_sid}")
+
 async def websocket_endpoint(websocket: WebSocket, room_id: str, player_sid: str):
     await websocket.accept()
-    websockets[player_sid] = websocket
+    player = add_player(room_id, player_sid, websocket)
+    
+    if player and len(player.hand) == 0:
+        start_game(room_id)
+    
+    await notify_players(room_id)
+
     try:
-        await handle_connection(room_id, player_sid, websocket)
+        while True:
+            data = await websocket.receive_text()
+            message = json.loads(data)
+            action = message.get('action')
+
+            if action == 'playCard':
+                card_index = message.get('cardIndex')
+                if play_card(room_id, player_sid, card_index):
+                    await notify_players(room_id)
+
+            elif action == 'defendMove':
+                card_index = message.get('cardIndex')
+                if defend_move(room_id, player_sid, card_index):
+                    await notify_players(room_id)
+
+            winner_sid = check_win_condition(room_id)
+            if winner_sid:
+                await websocket.send_json({"winner": winner_sid})
+                break
+
     except WebSocketDisconnect:
-        await handle_disconnect(room_id, player_sid)
+        pass
 
 async def handle_connection(room_id: str, player_sid: str, websocket: WebSocket):
     if room_id not in rooms:

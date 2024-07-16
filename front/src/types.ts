@@ -1,8 +1,8 @@
 export interface Card {
-  id: number
-  rank: number
-  type: TypeCard,
-  img: string
+  id: number;
+  rank: number;
+  type: string;
+  img: string;
 }
 export enum TypeCard {
   chervi = 'chervi',
@@ -12,19 +12,20 @@ export enum TypeCard {
 }
 
 export interface Player {
-  id: string;
+  sid: string;
   hand: Card[];
-  isDefender: boolean;
 }
 
 export interface Game {
   players: Player[];
+  trump_card: Card | null;
+  current_turn: string;
+  attacking_player: string;
+  defending_player: string;
+  active_cards: Card[];
   deck: Card[];
-  trumpCard: Card;
-  table: Card[];
-  turn: number;
 }
-  
+
 export interface LocationState {
   sid: string;
 }

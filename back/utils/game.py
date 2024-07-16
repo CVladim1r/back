@@ -12,9 +12,10 @@ class Card:
         return {"suit": self.suit, "rank": self.rank}
 
 class Player:
-    def __init__(self, sid: str):
+    def __init__(self, sid: str, websocket=None):
         self.sid = sid
         self.hand = []
+        self.websocket = websocket
 
     def dict(self):
         return {"sid": self.sid, "hand": [card.dict() for card in self.hand]}
@@ -43,21 +44,25 @@ def create_room(room_id: str):
     room.init_deck()
     rooms[room_id] = room
 
-def add_player(room_id: str, player_sid: str) -> Player:
+def add_player(room_id: str, player_sid: str, websocket) -> Player:
     if room_id not in rooms:
         return None
     room = rooms[room_id]
-    player = Player(player_sid)
+    player = Player(player_sid, websocket)
     room.players.append(player)
     return player
 
 def start_game(room_id: str):
     room = rooms[room_id]
+    if len(room.players) != 2:
+        return False
     room.trump_card = room.deck.pop()
     room.deck.insert(0, room.trump_card)
     room.current_turn = room.players[0].sid
     room.attacking_player = room.players[0].sid
     room.defending_player = room.players[1].sid
+    deal_cards(room_id)
+    return True
 
 def deal_cards(room_id: str):
     room = rooms[room_id]

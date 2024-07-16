@@ -1,114 +1,71 @@
+// src/components/Game.tsx
+
 import React, { useState, useEffect } from 'react';
-import { useLocation, useParams } from 'react-router-dom';
+import WebSocketService from '../api/ws';
+import Card from '../components/Card';
+import Table from '../components/Table';
 import PlayerHand from '../components/PlayerHand';
 import Deck from '../components/Deck';
-import Card from '../components/Card';
+import { Game as GameInterface, Card as CardInterface } from '../types';
 
-interface LocationState {
-  sid: string;
-}
+const Game: React.FC<{ roomId: string; playerSid: string }> = ({ roomId, playerSid }) => {
+  const [connected, setConnected] = useState<boolean>(false);
+  const [gameState, setGameState] = useState<GameInterface | null>(null);
 
-interface AppState {
-  data: { value: number, index: number }[];
-  count: number;
-  ws?: WebSocket;
-  interval?: NodeJS.Timeout;
-}
-
-const Game: React.FC = () => {
-  const { gameId } = useParams<{ gameId: string }>();
-  const location = useLocation();
-  const { sid } = location.state as LocationState;
-  const [game, setGame] = useState<any>(null); // Используем any для game, чтобы упростить работу с динамическими данными
-  const [ws, setWs] = useState<WebSocket | null>(null); // Состояние WebSocket
-
-  
   useEffect(() => {
-
-    
-    const connectWebSocket = () => {
-      const newWs = new WebSocket(`ws://localhost:8080/ws?sid=${sid}`);
-
-      newWs.onopen = () => {
-        console.log('WebSocket is open now.');
-        sendMessage({ type: 'joinGame', gameId, sid });
-      };
-
-      newWs.onmessage = (event) => {
-        console.log('WebSocket message received:', event.data);
-        const data = JSON.parse(event.data);
-        handleWebSocketMessage(data);
-      };
-
-      newWs.onclose = (event) => {
-        console.log('WebSocket connection closed:', event);
-        setWs(null); // Сброс состояния WebSocket при закрытии
-      };
-
-      newWs.onerror = (error) => {
-        console.error('WebSocket error:', error);
-      };
-
-      setWs(newWs); // Установка нового экземпляра WebSocket в состояние
+    const handleOpen = () => {
+      setConnected(true);
     };
 
-    if (!ws) {
-      console.log(`Attempting to connect to ws://localhost:8080/ws?sid=${sid}`);
-      connectWebSocket();
-    }
+    const handleClose = () => {
+      setConnected(false);
+    };
+
+    const handleMessage = (data: GameInterface) => {
+      setGameState(data);
+    };
+
+    WebSocketService.on('open', handleOpen);
+    WebSocketService.on('close', handleClose);
+    WebSocketService.on('message', handleMessage);
+
+    WebSocketService.connect(roomId, playerSid);
 
     return () => {
-      if (ws) {
-        console.log('Closing WebSocket connection');
-        ws.close();
-      }
+      WebSocketService.off('open', handleOpen);
+      WebSocketService.off('close', handleClose);
+      WebSocketService.off('message', handleMessage);
     };
-  }, [gameId, sid]); // Зависимости useEffect для переподключения при изменении gameId или sid
+  }, [roomId, playerSid]);
 
-  const handleWebSocketMessage = (data: any) => {
-    switch (data.type) {
-      case 'gameState':
-        setGame(data.game);
-        break;
-      case 'error':
-        console.error('Server error:', data.message);
-        break;
-      default:
-        console.warn('Unknown message type:', data);
-        break;
-    }
+  const handleCardDrop = (cardId: number) => {
+    console.log(`Card with id ${cardId} dropped on table`);
+    // Implement game logic to handle card drop
   };
 
-  const sendMessage = (message: any) => {
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      console.log('Sending message:', message);
-      ws.send(JSON.stringify(message));
-    } else {
-      console.warn('WebSocket is not connected. Unable to send message:', message);
-                setTimeout(() => {
-        sendMessage(message);
-      }, 1000); 
-    }
-  };
-
-  if (!game) {
+  if (!gameState) {
     return <div>Loading...</div>;
   }
 
-  const player = game.players.find((p: any) => p.id === sid);
-  const opponent = game.players.find((p: any) => p.id !== sid);
+  const player = gameState.players.find((p) => p.id === playerSid);
+  const opponent = gameState.players.find((p) => p.id !== playerSid);
 
   return (
     <div className="game">
-      <h1>Durak Online - Game {gameId}</h1>
-      {opponent && <PlayerHand hand={opponent.hand} />}
-      <Deck cards={game.deck} trumpCard={game.trumpCard} />
-      <div className="table">
-        {game.table.map((card: any, index: number) => (
-          <Card key={index} card={card} />
-        ))}
-      </div>
-      {player && <PlayerHand hand={player.hand} />}
+      <h1>Durak Online</h1>
+      {connected ? (
+        <div>
+          <h2>Connected as {playerSid}</h2>
+          <div className="game-state">
+            <Deck cards={gameState.deck} trumpCard={gameState.trumpCard} />
+            <Table cards={gameState.table} onCardDrop={handleCardDrop} />
+            <PlayerHand hand={player ? player.hand : []} />
+            {opponent && <PlayerHand hand={opponent.hand} />}
+          </div>
+        </div>
+      ) : (
+        <div>Connecting...</div>
+      )}
     </div>
   );
 };
