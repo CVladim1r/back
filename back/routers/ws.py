@@ -1,51 +1,55 @@
-# ws.py
-
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-from utils.game import rooms, Game, create_room, add_player, play_card, defend_move, check_win_condition, deal_cards, handle_client_message, notify_players
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException, status
+from utils.gamelogic import rooms, create_room, add_player, start_game, handle_client_message, notify_players
 import json
+import logging
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
-websockets = {}
-
-@router.websocket("/{room_id}/{player_sid}")
+@router.websocket("/ws/{room_id}/{player_sid}")
 async def websocket_endpoint(websocket: WebSocket, room_id: str, player_sid: str):
     await websocket.accept()
-    websockets[player_sid] = websocket
     try:
-        await handle_connection(room_id, player_sid, websocket)
-    except WebSocketDisconnect:
-        await handle_disconnect(room_id, player_sid)
+        if room_id not in rooms:
+            create_room(room_id)
+            logger.info(f"Room {room_id} created")
 
-async def handle_connection(room_id: str, player_sid: str, websocket: WebSocket):
-    if room_id not in rooms:
-        create_room(room_id)
+        player = add_player(room_id, player_sid)
+        if not player:
+            logger.warning(f"Failed to add player {player_sid} to room {room_id}")
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+            return
+        
+        player.websocket = websocket
+        logger.info(f"Player {player_sid} added to room {room_id}")
 
-    player = add_player(room_id, player_sid)
-    if not player:
-        await websocket.close()
-        return
+        if len(rooms[room_id].players) == 2:
+            await start_game(room_id)
+            logger.info(f"Game started in room {room_id}")
 
-    player.websocket = websocket
-
-    if len(rooms[room_id].players) == 2:
-        game_instance = Game()  # Create an instance of the Game class
-        await game_instance.start_game(room_id)  # Call start_game() from the instance
-        deal_cards(room_id)
         await notify_players(room_id)
+        logger.info(f"Players notified in room {room_id}")
 
-    await notify_players(room_id)
-
-    while True:
-        data = await websocket.receive_text()
-        message = json.loads(data)
-        await handle_client_message(websocket, player_sid, message)
+        while True:
+            data = await websocket.receive_text()
+            message = json.loads(data)
+            await handle_client_message(websocket, player_sid, message)
+    
+    except WebSocketDisconnect:
+        logger.info(f"Player {player_sid} disconnected from room {room_id}")
+        await handle_disconnect(room_id, player_sid)
+    except Exception as e:
+        logger.error(f"Error in WebSocket handling for player {player_sid} in room {room_id}: {str(e)}")
+        await handle_disconnect(room_id, player_sid)
 
 async def handle_disconnect(room_id: str, player_sid: str):
     if room_id in rooms:
         rooms[room_id].players = [player for player in rooms[room_id].players if player.sid != player_sid]
-        if player_sid in websockets:
-            del websockets[player_sid]
-        winner_sid = await check_win_condition(room_id)
-        if winner_sid:
-            await notify_players(room_id, winner_sid=winner_sid)
+        logger.info(f"Player {player_sid} removed from room {room_id}")
+        
+        if not rooms[room_id].players:
+            del rooms[room_id]
+            logger.info(f"Room {room_id} deleted because it is empty")
+        else:
+            await notify_players(room_id)
+            logger.info(f"Players notified in room {room_id} after disconnection of player {player_sid}")

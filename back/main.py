@@ -5,18 +5,15 @@ from routers import api, ws
 
 app = FastAPI()
 
-origins = [
-    "http://localhost:3000",
-]
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],  # Add more methods as needed
     allow_headers=["*"],
 )
 
+# WebSocket CORS middleware
 class WebSocketCORSMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
         response = await call_next(request)
@@ -26,12 +23,14 @@ class WebSocketCORSMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(WebSocketCORSMiddleware)
 
+# Include your API and WebSocket routers
 app.include_router(api.router, prefix="/api")
 app.include_router(ws.router, prefix="/ws")
 
+# Example route
 @app.get("/")
 async def read_root():
-    return {"Messqge": "Server Working!"}
+    return {"Hello": "World"}
 
 if __name__ == '__main__':
     import uvicorn
