@@ -1,5 +1,3 @@
-// src/components/Connection.tsx
-
 import React, { useState, useEffect } from 'react';
 import WebSocketService from '../api/ws';
 

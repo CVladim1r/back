@@ -1,4 +1,4 @@
-// src/ws.ts
+// src/api/ws.ts
 
 class WebSocketService {
     private socket: WebSocket | null = null;
