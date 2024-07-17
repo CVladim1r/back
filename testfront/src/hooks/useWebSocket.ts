@@ -3,79 +3,77 @@
 type EventCallback = (data?: any) => void;
 
 class WebSocketService {
-    private socket: WebSocket | null = null;
-    private listeners: { [key: string]: EventCallback[] } = {};
-    private activeRoomId: string | null = null;
-    private activePlayerSid: string | null = null;
+  private static instance: WebSocketService;
+  private socket: WebSocket | null = null;
+  private eventListeners: { [key: string]: Function[] } = {};
 
-    isConnected(): boolean {
-        return this.socket !== null && this.socket.readyState === WebSocket.OPEN;
+  private constructor() {}
+
+  public static getInstance(): WebSocketService {
+    if (!WebSocketService.instance) {
+      WebSocketService.instance = new WebSocketService();
     }
+    return WebSocketService.instance;
+  }
 
-    connect(roomId: string, playerSid: string): void {
-        if (this.isConnected() && this.activePlayerSid === playerSid && this.activeRoomId === roomId) {
-            console.warn(`Player ${playerSid} is already connected to room ${roomId}`);
-            return;
-        }
-
-        this.disconnect();
-
-        this.socket = new WebSocket(`ws://localhost:8000/ws/${roomId}/${playerSid}`);
-        this.activeRoomId = roomId;
-        this.activePlayerSid = playerSid;
-
-        this.socket.onopen = () => {
-            this.emit('open');
-        };
-
-        this.socket.onclose = () => {
-            this.emit('close');
-            this.disconnect();
-        };
-
-        this.socket.onmessage = (event: MessageEvent) => {
-            const data = JSON.parse(event.data);
-            this.emit('message', data);
-        };
-
-        this.socket.onerror = (error: Event) => {
-            this.emit('error', error);
-        };
+  public connect(roomId: string, playerId: string) {
+    if (this.socket) {
+      this.disconnect();
     }
+    this.socket = new WebSocket(`ws://localhost:8000/ws/${roomId}/${playerId}`);
 
-    disconnect(): void {
-        if (this.isConnected()) {
-            this.socket!.close();
-        }
-        this.socket = null;
-        this.activeRoomId = null;
-        this.activePlayerSid = null;
-    }
+    this.socket.onopen = () => {
+      this.emit('open');
+    };
 
-    send(data: any): void {
-        if (this.isConnected()) {
-            this.socket!.send(JSON.stringify(data));
-        } else {
-            console.error('WebSocket is not open to send data.');
-        }
-    }
+    this.socket.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      this.emit('message', data);
+    };
 
-    on(event: string, callback: EventCallback): void {
-        if (!this.listeners[event]) {
-            this.listeners[event] = [];
-        }
-        this.listeners[event].push(callback);
-    }
+    this.socket.onclose = () => {
+      this.emit('close');
+    };
 
-    off(event: string, callback: EventCallback): void {
-        if (!this.listeners[event]) return;
-        this.listeners[event] = this.listeners[event].filter(cb => cb !== callback);
-    }
+    this.socket.onerror = (error) => {
+      this.emit('error', error);
+    };
+  }
 
-    private emit(event: string, data?: any): void {
-        if (!this.listeners[event]) return;
-        this.listeners[event].forEach(callback => callback(data));
+  public disconnect() {
+    if (this.socket) {
+      this.socket.close();
+      this.socket = null;
     }
+  }
+
+  public send(data: any) {
+    if (this.socket) {
+      this.socket.send(JSON.stringify(data));
+    }
+  }
+
+  public on(event: string, listener: Function) {
+    if (!this.eventListeners[event]) {
+      this.eventListeners[event] = [];
+    }
+    this.eventListeners[event].push(listener);
+  }
+
+  public off(event: string, listener: Function) {
+    if (!this.eventListeners[event]) return;
+    this.eventListeners[event] = this.eventListeners[event].filter((l) => l !== listener);
+  }
+
+  private emit(event: string, ...args: any[]) {
+    if (this.eventListeners[event]) {
+      this.eventListeners[event].forEach((listener) => listener(...args));
+    }
+  }
+
+  public isConnected() {
+    return this.socket !== null && this.socket.readyState === WebSocket.OPEN;
+  }
 }
 
-export default new WebSocketService();
+export default WebSocketService.getInstance();

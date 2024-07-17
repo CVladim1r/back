@@ -15,6 +15,8 @@ type GameState = {
   current_turn: string;
   attacking_player: string;
   defending_player: string;
+  active_cards?: { suit: string; rank: string }[];
+  beaten_cards?: { suit: string; rank: string }[];
 };
 
 const GameRoom = () => {
@@ -25,6 +27,7 @@ const GameRoom = () => {
     if (!WebSocketService.isConnected()) {
       WebSocketService.connect(roomId!, playerId!);
     }
+
     const handleOpen = () => {
       console.log('WebSocket connection opened');
     };
