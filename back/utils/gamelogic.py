@@ -83,7 +83,8 @@ class Room:
             player.hand = [self.deck.pop() for _ in range(6)]
 
         if len(self.players) < 2:
-            raise ValueError("Not enough players to start the game.")
+            await self.notify_players({"action": "waiting_for_players"})
+            return
 
         self.attacking_player = random.choice(self.players).sid
         defending_players = [p.sid for p in self.players if p.sid != self.attacking_player]
@@ -135,15 +136,17 @@ class Room:
             self.beaten_cards.extend(self.active_cards)
             self.active_cards = []
         else:
-            defending_player = next(p for p in self.players if p.sid == self.defending_player)
-            defending_player.hand.extend(self.active_cards)
+            if self.defending_player:
+                defending_player = next((p for p in self.players if p.sid == self.defending_player), None)
+                if defending_player:
+                    defending_player.hand.extend(self.active_cards)
             self.active_cards = []
-        
+
         self.deal_cards()
-        
+
         if self.check_win_condition():
             return
-        
+
         if self.defense_successful:
             self.current_turn = self.attacking_player
             self.attacking_player, self.defending_player = self.defending_player, self.attacking_player
@@ -151,8 +154,9 @@ class Room:
             self.current_turn = self.attacking_player
             self.defending_player = self.attacking_player
         self.defense_successful = True
-        
+
         asyncio.create_task(self.notify_players(self.get_game_state()))
+
 
 rooms: Dict[str, Room] = {}
 
@@ -166,30 +170,58 @@ def create_room(room_id: str):
 def add_player(room_id: str, player_sid: str) -> Player:
     if room_id not in rooms:
         return None
+
     room = rooms[room_id]
+
+    if any(player.sid == player_sid for player in room.players):
+        logger.warning(f"Failed to add player {player_sid} to room {room_id}")
+        return None
+    
     player = Player(player_sid)
     room.players.append(player)
+    logger.info(f"Player {player_sid} added to room {room_id}")
+
     return player
+
+
+
+async def start_game(room_id: str):
+    room = rooms.get(room_id)
+    if not isinstance(room, Room):
+        logger.error(f"Room {room_id} not found or is not of type Room.")
+        return
+    
+    room.initialize_deck()
+    room.trump_card = room.deck.pop()
+    for player in room.players:
+        player.hand = [room.deck.pop() for _ in range(6)]
+
+    if len(room.players) < 2:
+        await room.notify_players({"action": "waiting_for_players"})
+        return
+
+    room.attacking_player = random.choice(room.players).sid
+    defending_players = [p.sid for p in room.players if p.sid != room.attacking_player]
+    if not defending_players:
+        raise ValueError(f"Cannot find defending player for {room.attacking_player}")
+
+    room.defending_player = defending_players[0]
+    room.current_turn = room.attacking_player
+
+    await room.notify_players(room.get_game_state())
+
+
 
 async def confirm_start_game(room_id: str):
     room = rooms[room_id]
     for player in room.players:
-        player.ready = False
-    await room.notify_players({"action": "confirm_start"})
+        await player.websocket.send_json({"action": "confirm_start"})
 
-async def start_game(room_id: str):
-    room = rooms[room_id]
-    if len(room.players) != 2:
-        raise ValueError("Cannot start game: Not enough players")
-    room.trump_card = room.deck.pop()
-    room.deck.insert(0, room.trump_card)
-    room.attacking_player = random.choice(room.players).sid
-    defending_players = [p.sid for p in room.players if p.sid != room.attacking_player]
-    if defending_players:
-        room.defending_player = defending_players[0]
-    else:
-        raise ValueError("Cannot find defending player")
-    asyncio.create_task(room.start_game())
+# async def confirm_start_game(room_id: str):
+#     room = rooms[room_id]
+#     for player in room.players:
+#         player.ready = False
+#     await room.notify_players({"action": "confirm_start"})
 
 async def handle_client_message(websocket: WebSocket, player_sid: str, data: Dict[str, Any]):
     room_id = data.get("room_id")

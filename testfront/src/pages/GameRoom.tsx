@@ -4,18 +4,33 @@ import GameBoard from '../components/GameBoard';
 import PlayerHand from '../components/PlayerHand';
 import { useState, useEffect } from 'react';
 
+type Player = {
+  sid: string;
+  hand: { suit: string; rank: string }[];
+};
+
+type GameState = {
+  players: Player[];
+  trump_card: { suit: string; rank: string };
+  current_turn: string;
+  attacking_player: string;
+  defending_player: string;
+};
+
 const GameRoom = () => {
   const { roomId, playerId } = useParams<{ roomId: string; playerId: string }>();
-  const [gameState, setGameState] = useState<any>(null);
+  const [gameState, setGameState] = useState<GameState | null>(null);
 
   useEffect(() => {
-    WebSocketService.connect(roomId!, playerId!);
-
+    if (!WebSocketService.isConnected()) {
+      WebSocketService.connect(roomId!, playerId!);
+    }
     const handleOpen = () => {
       console.log('WebSocket connection opened');
     };
 
     const handleMessage = (data: any) => {
+      console.log('Received message:', data);
       if (data.action === 'game_state') {
         setGameState(data);
       }
@@ -23,6 +38,7 @@ const GameRoom = () => {
 
     const handleClose = () => {
       console.log('WebSocket connection closed');
+      setGameState(null);
     };
 
     const handleError = (error: any) => {
@@ -46,6 +62,10 @@ const GameRoom = () => {
     WebSocketService.send({ action: 'confirm_start', room_id: roomId, player_sid: playerId });
   };
 
+  if (!gameState) {
+    return <div>Loading...</div>;
+  }
+
   return (
     <div>
       <h2>Room ID: {roomId}</h2>
@@ -55,6 +75,5 @@ const GameRoom = () => {
     </div>
   );
 };
-
 
 export default GameRoom;
