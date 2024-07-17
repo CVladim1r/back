@@ -49,8 +49,9 @@ class Room:
         self.current_turn: str = None
         self.attacking_player: str = None
         self.defending_player: str = None
-        self.active_cards: List[Card] = []
-        self.beaten_cards: List[Card] = []
+        self.active_cards: List[Card] = []  # Карты на столе
+        self.deck_cards: List[Card] = []  # Карты в колоде
+        self.beaten_cards: List[Card] = []  # Карты в бите
         self.winner: str = None
         self.defense_successful: bool = True
 
@@ -60,6 +61,7 @@ class Room:
         self.deck = [Card(suit, rank) for suit in suits for rank in ranks]
         if shuffle:
             random.shuffle(self.deck)
+        self.deck_cards = list(self.deck)
 
     def get_game_state(self):
         return {
@@ -140,12 +142,12 @@ class Room:
             defending_player = next(p for p in self.players if p.sid == self.defending_player)
             defending_player.hand.extend(self.active_cards)
             self.active_cards = []
-        
+
         self.deal_cards()
-        
+
         if self.check_win_condition():
             return
-        
+
         if self.defense_successful:
             self.current_turn = self.attacking_player
             self.attacking_player, self.defending_player = self.defending_player, self.attacking_player
@@ -153,7 +155,7 @@ class Room:
             self.current_turn = self.attacking_player
             self.defending_player = self.attacking_player
         self.defense_successful = True
-        
+
         asyncio.create_task(self.notify_players(self.get_game_state()))
 
 rooms: Dict[str, Room] = {}

@@ -1,51 +1,40 @@
-/* src/App.css or src/components/Game.css */
-
 .game {
     text-align: center;
 }
 
-.players {
-    display: flex;
-    justify-content: space-around;
-    margin-top: 20px;
+.card {
+    display: inline-block;
+    margin: 10px;
+    cursor: pointer;
 }
 
-.player, .opponent {
-    width: 45%;
+.card img {
+    width: 80px; /* Adjust the size of the cards */
+    height: 120px;
 }
 
 .hand {
     display: flex;
     justify-content: center;
+    margin-bottom: 20px;
+}
+
+.table {
+    border: 2px solid #000;
+    padding: 20px;
+    margin: 20px;
+    display: flex;
+    justify-content: center;
     flex-wrap: wrap;
 }
 
-.card, .card-back {
-    width: 60px;
-    height: 90px;
-    border: 1px solid #000;
-    margin: 5px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 18px;
-    border-radius: 5px;
-    background-color: white;
-    box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.3);
-}
-
 .card-back {
-    background-color: #888;
-}
-
-.rank, .suit {
-    margin: 0;
+    width: 80px;
+    height: 120px;
+    background-color: #ccc;
+    border: 1px solid #000;
 }
 
 .trump-card {
-    margin-top: 20px;
-}
-
-.trump-card .card {
-    margin: auto;
+    margin-bottom: 20px;
 }

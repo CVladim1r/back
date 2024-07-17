@@ -10,5 +10,4 @@ export const createGame = async (sid: string) => {
 };
 
 export const startGame = async (gameId: string) => {
-  // Implementation of starting the game
 };

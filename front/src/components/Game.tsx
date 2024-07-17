@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import WebSocketService from '../api/ws';
 import { Card, Player, Game as GameState } from '../types';
-import PlayerHand from './PlayerHand';
-import { cards } from '../cards'
+import { cards } from '../cards';
+import './Game.css'; // импортируем стили
+
 interface GameProps {
     roomId: string;
     playerSid: string;
@@ -60,37 +61,39 @@ const Game: React.FC<GameProps> = ({ roomId, playerSid, playerName }) => {
         };
     }, [roomId, playerSid, playerName]);
 
-    const playCard = (card: Card) => {
+    const playCard = (cardIndex: number) => {
         if (gameState?.current_turn === playerSid) {
             WebSocketService.send({
                 action: 'play_card',
                 room_id: roomId,
-                card
+                card_index: cardIndex
             });
         }
     };
 
-    const defendCard = (card: Card) => {
+    const defendCard = (cardIndex: number) => {
         if (gameState?.current_turn === playerSid) {
             WebSocketService.send({
-                action: 'defend_card',
+                action: 'defend_move',
                 room_id: roomId,
-                card
+                card_index: cardIndex
             });
         }
     };
 
-
-    const renderCard = (card: { suit: string; rank: string }, isPlayerCard: boolean = true) => (
-        <div className="card" onClick={() => isPlayerCard ? playCard(card) : defendCard(card)}>
-            <img src={getCardImage(card.rank, card.suit)} alt={`${card.rank} of ${card.suit}`} />
-        </div>
-    );
+    const renderCard = (card: { suit: string; rank: string } | null, isPlayerCard: boolean = true, key?: number) => {
+        if (!card) return null;
+        return (
+            <div className="card" onClick={() => key !== undefined && (isPlayerCard ? playCard(key) : defendCard(key))} key={key}>
+                <img src={getCardImage(card.rank, card.suit)} alt={`${card.rank} of ${card.suit}`} />
+            </div>
+        );
+    };
 
     const getCardImage = (rank: string, suit: string) => {
-        const card = cards.find(c => c.rank === rank && c.suit === suit);
+        const card = cards.find(c => c.rank === rank && c.type === suit);
         return card ? card.img : 'path/to/default/image.png'; 
-      };
+    };
 
     const getPlayer = () => gameState?.players.find(player => player.sid === playerSid);
     const getOpponent = () => gameState?.players.find(player => player.sid !== playerSid);
@@ -102,6 +105,8 @@ const Game: React.FC<GameProps> = ({ roomId, playerSid, playerName }) => {
                 <div>
                     <h3>Player: {getPlayer()?.name} ({getPlayer()?.sid}), Opponent: {getOpponent()?.name} ({getOpponent()?.sid})</h3>
                     <h3>Room: {roomId}</h3>
+                    <h3>Current Turn: {gameState?.current_turn === playerSid ? 'Your turn' : 'Opponent\'s turn'}</h3>
+                    <h3>Cards left in deck: {gameState?.deck_count}</h3>
 
                     {timer !== null ? (
                         <div>
@@ -117,14 +122,22 @@ const Game: React.FC<GameProps> = ({ roomId, playerSid, playerName }) => {
                                 <div className="player">
                                     <h3>Your Hand</h3>
                                     <div className="hand">
-                                        {getPlayer()?.hand.map(card => renderCard(card))}
+                                        {getPlayer()?.hand.map((card, index) => renderCard(card, true, index))}
+                                    </div>
+                                </div>
+                                <div className="opponent">
+                                    <h3>Opponent's Hand</h3>
+                                    <div className="hand">
+                                        {getOpponent()?.hand.map((_, index) => (
+                                            <div className="card-back" key={index}></div>
+                                        ))}
                                     </div>
                                 </div>
                             </div>
                             <div className="table">
                                 <h3>Table</h3>
                                 <div className="cards">
-                                    {gameState.active_cards.map(card => renderCard(card, false))}
+                                    {gameState.active_cards.map((card, index) => renderCard(card, false, index))}
                                 </div>
                             </div>
                         </div>

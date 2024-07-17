@@ -25,7 +25,9 @@ export interface Game {
   attacking_player: string;
   defending_player: string;
   active_cards: Card[];
+  beaten_cards: Card[];
   deck: Card[];
+  deck_count: number; // добавляем это свойство
   winner?: string;
 }
 

@@ -1,20 +1,20 @@
 import React from 'react';
-import { Card as CardInterface } from '../types';
-import Card from './CardComponent';
+import { Card } from '../types';
+import { getCardImage } from '../cards'; // Update this import if necessary
 
 interface PlayerHandProps {
-  hand: CardInterface[];
-  playCard?: (card: CardInterface) => void;
+    hand: Card[];
+    playCard: (card: Card) => void;
 }
 
-const PlayerHand: React.FC<PlayerHandProps> = ({ hand, playCard }) => {
-  return (
-    <div className="player-hand">
-      {hand.map((card, index) => (
-        <Card key={index} card={card} onClick={playCard ? () => playCard(card) : undefined} />
-      ))}
+const PlayerHand: React.FC<PlayerHandProps> = ({ hand, playCard }) => (
+    <div className="hand">
+        {hand.map(card => (
+            <div className="card" onClick={() => playCard(card)} key={`${card.rank}-${card.suit}`}>
+                <img src={getCardImage(card.rank, card.suit)} alt={`${card.rank} of ${card.suit}`} />
+            </div>
+        ))}
     </div>
-  );
-};
+);
 
 export default PlayerHand;
