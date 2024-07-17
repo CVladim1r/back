@@ -1,46 +1,56 @@
-import { useEffect, useState } from 'react';
+// src/api/ws.ts
 
-const useWebSocket = (url: string) => {
-  const [socket, setSocket] = useState<WebSocket | null>(null);
-  const [messages, setMessages] = useState<any[]>([]);
+type EventCallback = (data?: any) => void;
 
-  useEffect(() => {
-    const ws = new WebSocket(url);
-    setSocket(ws);
+class WebSocketService {
+    private socket: WebSocket | null = null;
+    private listeners: { [key: string]: EventCallback[] } = {};
 
-    ws.onopen = () => {
-      console.log('WebSocket connection opened');
-    };
+    connect(roomId: string, playerSid: string): void {
+        this.socket = new WebSocket(`ws://localhost:8000/ws/${roomId}/${playerSid}`);
 
-    ws.onmessage = (event) => {
-      const message = JSON.parse(event.data);
-      setMessages((prev) => [...prev, message]);
-    };
+        this.socket.onopen = () => {
+            this.emit('open');
+        };
 
-    ws.onerror = (event) => {
-      console.error('WebSocket error:', event);
-    };
+        this.socket.onclose = () => {
+            this.emit('close');
+        };
 
-    ws.onclose = (event) => {
-      if (!event.wasClean) {
-        console.error(`WebSocket closed unexpectedly: code=${event.code}, reason=${event.reason}`);
-      } else {
-        console.log('WebSocket closed:', event);
-      }
-    };
+        this.socket.onmessage = (event: MessageEvent) => {
+            const data = JSON.parse(event.data);
+            this.emit('message', data);
+        };
 
-    return () => {
-      ws.close();
-    };
-  }, [url]);
-
-  const sendMessage = (message: any) => {
-    if (socket?.readyState === WebSocket.OPEN) {
-      socket.send(JSON.stringify(message));
+        this.socket.onerror = (error: Event) => {
+            this.emit('error', error);
+        };
     }
-  };
 
-  return { messages, sendMessage };
-};
+    send(data: any): void {
+        if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+            this.socket.send(JSON.stringify(data));
+        } else {
+            console.error('WebSocket is not open to send data.');
+        }
+    }
 
-export default useWebSocket;
+    on(event: string, callback: EventCallback): void {
+        if (!this.listeners[event]) {
+            this.listeners[event] = [];
+        }
+        this.listeners[event].push(callback);
+    }
+
+    off(event: string, callback: EventCallback): void {
+        if (!this.listeners[event]) return;
+        this.listeners[event] = this.listeners[event].filter(cb => cb !== callback);
+    }
+
+    private emit(event: string, data?: any): void {
+        if (!this.listeners[event]) return;
+        this.listeners[event].forEach(callback => callback(data));
+    }
+}
+
+export default new WebSocketService();

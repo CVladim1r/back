@@ -2,6 +2,10 @@ import random
 from typing import List, Dict, Any
 import asyncio
 from fastapi import WebSocket
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 class Card:
     def __init__(self, suit: str, rank: str):
