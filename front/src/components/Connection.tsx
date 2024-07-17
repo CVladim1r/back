@@ -3,6 +3,7 @@ import WebSocketService from '../api/ws';
 
 interface Player {
     sid: string;
+    name: string;
     hand: any[];
 }
 
@@ -17,19 +18,20 @@ interface GameState {
 }
 
 interface ConnectionProps {
-    onConnect: (roomId: string, playerSid: string) => void;
+    onConnect: (roomId: string, playerSid: string, playerName: string) => void;
 }
 
 const Connection: React.FC<ConnectionProps> = ({ onConnect }) => {
     const [roomId, setRoomId] = useState<string>('room1');
     const [playerSid, setPlayerSid] = useState<string>('');
+    const [playerName, setPlayerName] = useState<string>('');
     const [connected, setConnected] = useState<boolean>(false);
     const [gameState, setGameState] = useState<GameState | null>(null);
 
     useEffect(() => {
         const handleOpen = () => {
             setConnected(true);
-            onConnect(roomId, playerSid);
+            onConnect(roomId, playerSid, playerName);
         };
 
         const handleClose = () => {
@@ -49,12 +51,12 @@ const Connection: React.FC<ConnectionProps> = ({ onConnect }) => {
             WebSocketService.off('close', handleClose);
             WebSocketService.off('message', handleMessage);
         };
-    }, [onConnect, roomId, playerSid]);
+    }, [onConnect, roomId, playerSid, playerName]);
 
     const connect = () => {
         const sid = `player${Math.floor(Math.random() * 10000)}`;
         setPlayerSid(sid);
-        WebSocketService.connect(roomId, sid);
+        WebSocketService.connect(roomId, sid, playerName);
     };
 
     return (
@@ -62,13 +64,13 @@ const Connection: React.FC<ConnectionProps> = ({ onConnect }) => {
             <h1>Connect to Room</h1>
             {connected ? (
                 <div>
-                    <h2>Connected as {playerSid}</h2>
+                    <h2>Connected as {playerName} ({playerSid})</h2>
                     {gameState && (
                         <div>
                             <h3>Players in room:</h3>
                             <ul>
                                 {gameState.players.map(player => (
-                                    <li key={player.sid}>{player.sid}</li>
+                                    <li key={player.sid}>{player.name} ({player.sid})</li>
                                 ))}
                             </ul>
                         </div>
@@ -81,6 +83,12 @@ const Connection: React.FC<ConnectionProps> = ({ onConnect }) => {
                         value={roomId}
                         onChange={(e) => setRoomId(e.target.value)}
                         placeholder="Enter room ID"
+                    />
+                    <input
+                        type="text"
+                        value={playerName}
+                        onChange={(e) => setPlayerName(e.target.value)}
+                        placeholder="Enter your name"
                     />
                     <button onClick={connect}>Connect to Room</button>
                 </div>

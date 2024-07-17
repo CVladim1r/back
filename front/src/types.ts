@@ -1,5 +1,3 @@
-// src/types.ts
-
 export enum TypeCard {
   chervi = 'chervi',
   bubi = 'bubi',
@@ -8,25 +6,27 @@ export enum TypeCard {
 }
 
 export interface Card {
-  id: number;
-  rank: number;
-  type: TypeCard;
-  img: string;
+  suit: string;
+  rank: string;
+  img?: string;
 }
 
 export interface Player {
   sid: string;
+  name: string;
   hand: Card[];
   isDefender: boolean;
 }
 
 export interface Game {
   players: Player[];
+  trump_card: Card;
+  current_turn: string;
+  attacking_player: string;
+  defending_player: string;
+  active_cards: Card[];
   deck: Card[];
-  current_turn: string; // Изменено на тип string, если это идентификатор игрока
-  trumpCard: Card;
-  table: Card[];
-  turn: number;
+  winner?: string;
 }
 
 export interface LocationState {

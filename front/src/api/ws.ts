@@ -1,11 +1,9 @@
-// src/api/ws.ts
-
 class WebSocketService {
     private socket: WebSocket | null = null;
     private listeners: { [key: string]: Function[] } = {};
 
-    connect(roomId: string, playerSid: string): void {
-        this.socket = new WebSocket(`ws://localhost:8000/ws/${roomId}/${playerSid}`);
+    connect(roomId: string, playerSid: string, playerName: string): void {
+        this.socket = new WebSocket(`ws://localhost:8000/ws/room=${roomId}&playerid=${playerSid}&playername=${playerName}`);
 
         this.socket.onopen = () => {
             this.emit('open');

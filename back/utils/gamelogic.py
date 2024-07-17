@@ -22,17 +22,23 @@ class Card:
         return False
 
 class Player:
-    def __init__(self, sid: str):
+    def __init__(self, sid: str, name: str, websocket: WebSocket):
         self.sid = sid
+        self.name = name
         self.hand: List[Card] = []
-        self.websocket: WebSocket = None
+        self.websocket: WebSocket = websocket
         self.ready: bool = False
 
     def dict(self):
-        return {"sid": self.sid, "hand": [card.dict() for card in self.hand], "ready": self.ready}
-
+        return {
+            "sid": self.sid,
+            "name": self.name,
+            "hand": [card.dict() for card in self.hand],
+            "ready": self.ready
+        }
+        
     def __repr__(self):
-        return f"Player {self.sid} with hand {self.hand}"
+        return f"Player {self.name} ({self.sid}) with hand {self.hand}"
 
 class Room:
     def __init__(self, room_id: str):
@@ -159,11 +165,11 @@ def create_room(room_id: str):
         rooms[room_id] = room
 
 
-def add_player(room_id: str, player_sid: str) -> Player:
+def add_player(room_id: str, player_sid: str, player_name: str, websocket: WebSocket) -> Player:
     if room_id not in rooms:
         return None
     room = rooms[room_id]
-    player = Player(player_sid)
+    player = Player(player_sid, player_name, websocket)
     room.players.append(player)
     return player
 

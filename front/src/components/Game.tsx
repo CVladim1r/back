@@ -1,9 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import WebSocketService from '../api/ws';
-import { Card, Player, Game as GameState, TypeCard } from '../types';
+import { Card, Player, Game as GameState } from '../types';
 import PlayerHand from './PlayerHand';
+import { cards } from '../cards'
+interface GameProps {
+    roomId: string;
+    playerSid: string;
+    playerName: string;
+}
 
-const Game: React.FC<{ roomId: string; playerSid: string }> = ({ roomId, playerSid }) => {
+const Game: React.FC<GameProps> = ({ roomId, playerSid, playerName }) => {
     const [connected, setConnected] = useState<boolean>(false);
     const [gameState, setGameState] = useState<GameState | null>(null);
     const [timer, setTimer] = useState<number | null>(null);
@@ -11,7 +17,6 @@ const Game: React.FC<{ roomId: string; playerSid: string }> = ({ roomId, playerS
     useEffect(() => {
         const handleOpen = () => {
             setConnected(true);
-            WebSocketService.connect(roomId, playerSid);
         };
 
         const handleClose = () => {
@@ -20,12 +25,12 @@ const Game: React.FC<{ roomId: string; playerSid: string }> = ({ roomId, playerS
 
         const handleMessage = (data: any) => {
             console.log('Received data from WebSocket:', data);
-        
+
             if (!data) {
                 console.error('Received null or undefined data from WebSocket');
                 return;
             }
-        
+
             if (data.action === 'starting' && typeof data.timer === 'number') {
                 setTimer(data.timer);
                 const countdown = setInterval(() => {
@@ -41,22 +46,22 @@ const Game: React.FC<{ roomId: string; playerSid: string }> = ({ roomId, playerS
                 setGameState(data);
             }
         };
-        
-        
 
         WebSocketService.on('open', handleOpen);
         WebSocketService.on('close', handleClose);
         WebSocketService.on('message', handleMessage);
+
+        WebSocketService.connect(roomId, playerSid, playerName);
 
         return () => {
             WebSocketService.off('open', handleOpen);
             WebSocketService.off('close', handleClose);
             WebSocketService.off('message', handleMessage);
         };
-    }, [roomId, playerSid]);
+    }, [roomId, playerSid, playerName]);
 
     const playCard = (card: Card) => {
-        if (gameState?.current_turn === playerSid) { // Обновлено: проверка на текущий ход игрока
+        if (gameState?.current_turn === playerSid) {
             WebSocketService.send({
                 action: 'play_card',
                 room_id: roomId,
@@ -66,7 +71,7 @@ const Game: React.FC<{ roomId: string; playerSid: string }> = ({ roomId, playerS
     };
 
     const defendCard = (card: Card) => {
-        if (gameState?.current_turn === playerSid) { // Обновлено: проверка на текущий ход игрока
+        if (gameState?.current_turn === playerSid) {
             WebSocketService.send({
                 action: 'defend_card',
                 room_id: roomId,
@@ -75,21 +80,27 @@ const Game: React.FC<{ roomId: string; playerSid: string }> = ({ roomId, playerS
         }
     };
 
-    const renderCard = (card: Card, isPlayerCard: boolean = true) => (
+
+    const renderCard = (card: { suit: string; rank: string }, isPlayerCard: boolean = true) => (
         <div className="card" onClick={() => isPlayerCard ? playCard(card) : defendCard(card)}>
-            <img src={card.img} alt={`${card.rank} of ${card.type}`} />
+            <img src={getCardImage(card.rank, card.suit)} alt={`${card.rank} of ${card.suit}`} />
         </div>
     );
 
-    const getPlayer = () => gameState?.players.find(player => player.sid === playerSid); // Обновлено: исправлено сравнение
-    const getOpponent = () => gameState?.players.find(player => player.sid !== playerSid); // Обновлено: исправлено сравнение
+    const getCardImage = (rank: string, suit: string) => {
+        const card = cards.find(c => c.rank === rank && c.suit === suit);
+        return card ? card.img : 'path/to/default/image.png'; 
+      };
+
+    const getPlayer = () => gameState?.players.find(player => player.sid === playerSid);
+    const getOpponent = () => gameState?.players.find(player => player.sid !== playerSid);
 
     return (
         <div className="game">
             <h1>Durak Online</h1>
             {connected ? (
                 <div>
-                    <h3>Player: {getPlayer()?.sid}, Opponent: {getOpponent()?.sid}</h3> {/* Обновлено: выводим id игрока и оппонента */}
+                    <h3>Player: {getPlayer()?.name} ({getPlayer()?.sid}), Opponent: {getOpponent()?.name} ({getOpponent()?.sid})</h3>
                     <h3>Room: {roomId}</h3>
 
                     {timer !== null ? (
@@ -100,7 +111,7 @@ const Game: React.FC<{ roomId: string; playerSid: string }> = ({ roomId, playerS
                         <div className="game-state">
                             <div className="trump-card">
                                 <h3>Trump Card</h3>
-                                {renderCard(gameState.trumpCard, false)} {/* Обновлено: исправлено имя свойства */}
+                                {renderCard(gameState.trump_card, false)}
                             </div>
                             <div className="players">
                                 <div className="player">
@@ -109,19 +120,11 @@ const Game: React.FC<{ roomId: string; playerSid: string }> = ({ roomId, playerS
                                         {getPlayer()?.hand.map(card => renderCard(card))}
                                     </div>
                                 </div>
-                                <div className="opponent">
-                                    <h3>Opponent's Hand</h3>
-                                    <div className="hand">
-                                        {getOpponent()?.hand.map(() => (
-                                            <div className="card-back"></div>
-                                        ))}
-                                    </div>
-                                </div>
                             </div>
                             <div className="table">
                                 <h3>Table</h3>
                                 <div className="cards">
-                                    {gameState.deck.map(card => renderCard(card, false))} {/* Обновлено: исправлено имя свойства */}
+                                    {gameState.active_cards.map(card => renderCard(card, false))}
                                 </div>
                             </div>
                         </div>
