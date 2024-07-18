@@ -49,9 +49,9 @@ class Room:
         self.current_turn: str = None
         self.attacking_player: str = None
         self.defending_player: str = None
-        self.active_cards: List[Card] = []  # Карты на столе
-        self.deck_cards: List[Card] = []  # Карты в колоде
-        self.beaten_cards: List[Card] = []  # Карты в бите
+        self.active_cards: List[Dict[str, Any]] = []
+        self.deck_cards: List[Card] = []
+        self.beaten_cards: List[Card] = []
         self.winner: str = None
         self.defense_successful: bool = True
 
@@ -70,9 +70,9 @@ class Room:
             "current_turn": self.current_turn,
             "attacking_player": self.attacking_player,
             "defending_player": self.defending_player,
-            "active_cards": [card.dict() for card in self.active_cards],
+            "active_cards": [{"card": card["card"].dict(), "player_sid": card["player_sid"]} for card in self.active_cards],
+            "deck_cards": [card.dict() for card in self.deck_cards],
             "beaten_cards": [card.dict() for card in self.beaten_cards],
-            "deck_count": len(self.deck),
             "winner": self.winner
         }
 
@@ -109,12 +109,12 @@ class Room:
         if player and 0 <= card_index < len(player.hand):
             card = player.hand.pop(card_index)
             if self.current_turn == self.attacking_player:
-                self.active_cards.append(card)
+                self.active_cards.append({"card": card, "player_sid": player_sid})
                 self.current_turn = self.defending_player
             elif self.current_turn == self.defending_player:
-                attack_card = self.active_cards[-1]
+                attack_card = self.active_cards[-1]["card"]
                 if card.can_beat(attack_card, self.trump_card.suit):
-                    self.active_cards.append(card)
+                    self.active_cards.append({"card": card, "player_sid": player_sid})
                     self.current_turn = self.attacking_player
                     self.defense_successful = True
                 else:
@@ -136,13 +136,12 @@ class Room:
 
     def end_turn(self):
         if self.defense_successful:
-            self.beaten_cards.extend(self.active_cards)
-            self.active_cards = []
+            self.beaten_cards.extend([card["card"] for card in self.active_cards])
         else:
             defending_player = next(p for p in self.players if p.sid == self.defending_player)
-            defending_player.hand.extend(self.active_cards)
-            self.active_cards = []
+            defending_player.hand.extend([card["card"] for card in self.active_cards])
 
+        self.active_cards = []
         self.deal_cards()
 
         if self.check_win_condition():
@@ -158,6 +157,8 @@ class Room:
 
         asyncio.create_task(self.notify_players(self.get_game_state()))
 
+
+
 rooms: Dict[str, Room] = {}
 
 def create_room(room_id: str):
@@ -165,7 +166,6 @@ def create_room(room_id: str):
         room = Room(room_id)
         room.initialize_deck()
         rooms[room_id] = room
-
 
 def add_player(room_id: str, player_sid: str, player_name: str, websocket: WebSocket) -> Player:
     if room_id not in rooms:
@@ -221,6 +221,8 @@ async def handle_client_message(websocket: WebSocket, player_sid: str, data: Dic
             if all(p.ready for p in room.players):
                 await start_game(room_id)
     await room.notify_players(room.get_game_state())
+
+
 
 async def notify_players(room_id: str):
     if room_id in rooms:

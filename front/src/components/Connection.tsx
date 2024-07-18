@@ -54,6 +54,7 @@ const Connection: React.FC<ConnectionProps> = ({ onConnect }) => {
     }, [onConnect, roomId, playerSid, playerName]);
 
     const connect = () => {
+        if (connected) return;
         const sid = `player${Math.floor(Math.random() * 10000)}`;
         setPlayerSid(sid);
         WebSocketService.connect(roomId, sid, playerName);

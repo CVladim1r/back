@@ -11,6 +11,11 @@ export interface Card {
   img?: string;
 }
 
+export interface ActiveCard extends Card {
+  isPlayerCard: boolean;
+  index: number;
+}
+
 export interface Player {
   sid: string;
   name: string;
@@ -24,10 +29,10 @@ export interface Game {
   current_turn: string;
   attacking_player: string;
   defending_player: string;
-  active_cards: Card[];
+  active_cards: ActiveCard[];
   beaten_cards: Card[];
   deck: Card[];
-  deck_count: number; // добавляем это свойство
+  deck_count: number;
   winner?: string;
 }
 

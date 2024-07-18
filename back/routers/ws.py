@@ -14,6 +14,12 @@ async def websocket_endpoint(websocket: WebSocket, room_id: str, player_sid: str
             create_room(room_id)
             logger.info(f"Room {room_id} created")
 
+        # Ensure player is unique
+        if any(player.sid == player_sid for player in rooms[room_id].players):
+            logger.warning(f"Player {player_sid} already exists in room {room_id}")
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+            return
+
         player = add_player(room_id, player_sid, player_name, websocket)
         if not player:
             logger.warning(f"Failed to add player {player_sid} to room {room_id}")
