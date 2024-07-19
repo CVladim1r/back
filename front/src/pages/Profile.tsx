@@ -1,25 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import './Profile.css';
+declare const window: any;
+
+const tele = window.Telegram.WebApp
 
 const Profile: React.FC = () => {
-  const [user, setUser] = useState<any>(null);
-  const tg = window.Telegram.WebApp;
+  const [user] = useState<any>(null);
 
   useEffect(() => {
-    if (tg) {
-      // Telegram Web App API доступен
-      setUser(tg.initDataUnsafe);
-    }
-  }, [tg]);
-
-  // Функция для получения информации о пользователе из Telegram API
-  const getUserInfo = () => {
-    if (tg && tg.initDataUnsafe) {
-      const userInfo = tg.initDataUnsafe.user;
-      return userInfo ? userInfo : 'No user info available';
-    }
-    return 'No user info available';
-  };
+    tele.ready()
+  });
 
   return (
     <div className="profile-container">
