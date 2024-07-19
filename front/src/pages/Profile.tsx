@@ -1,15 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import './Profile.css';
-declare const window: any;
 
-const tele = window.Telegram.WebApp
+const tele = window.Telegram.WebApp;
 
 const Profile: React.FC = () => {
-  const [user] = useState<any>(null);
+  const [user, setUser] = useState<TelegramUser | null>(null);
 
   useEffect(() => {
-    tele.ready()
-  });
+    tele.ready();
+    const initDataUnsafe = tele.initDataUnsafe;
+    setUser(initDataUnsafe.user);
+  }, []);
 
   return (
     <div className="profile-container">

@@ -6,6 +6,10 @@ class WebSocketService {
     private onMessageCallbacks: Array<(event: MessageEvent) => void> = [];
 
     connect(roomId: string, playerSid: string, playerName: string) {
+        if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+            return;
+        }
+
         this.socket = new WebSocket(`ws://localhost:8000/ws/room=${roomId}&playerid=${playerSid}&playername=${playerName}`);
 
         this.socket.onopen = () => {
