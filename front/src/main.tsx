@@ -5,6 +5,7 @@ import './index.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <App />
   </React.StrictMode>,
 )

@@ -1,3 +1,4 @@
+// src/components/Game.tsx
 import React from 'react';
 import { useDrop, DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
@@ -16,6 +17,7 @@ interface GameProps {
 const ItemTypes = {
     CARD: 'card'
 };
+
 const Game: React.FC<GameProps> = ({ roomId, playerSid, playerName, gameState }) => {
     const playCard = (cardIndex: number) => {
         if (gameState.current_turn === playerSid && gameState.current_turn === gameState.attacking_player) {
@@ -41,7 +43,7 @@ const Game: React.FC<GameProps> = ({ roomId, playerSid, playerName, gameState })
         if (!card) return null;
         return (
             <CardComponent
-                key={`${card.suit}-${card.rank}-${index}`}
+                key={`${card.suit}-${card.rank}-${index}`} // Ensure a unique key for each card
                 card={{ ...card, isPlayerCard, index } as ActiveCard}
                 onClick={() => {
                     if (isPlayerCard) {
@@ -56,81 +58,74 @@ const Game: React.FC<GameProps> = ({ roomId, playerSid, playerName, gameState })
         );
     };
 
-    const getPlayer = () => gameState?.players.find((player) => player.sid === playerSid);
-    const getOpponent = () => gameState?.players.find((player) => player.sid !== playerSid);
+    const getPlayer = () => gameState.players.find((player) => player.sid === playerSid);
+    const getOpponent = () => gameState.players.find((player) => player.sid !== playerSid);
 
     return (
         <DndProvider backend={HTML5Backend}>
             <div className="game">
-                <h1>Durak Online</h1>
-                {gameState ? (
-                    <div>
-                        <h3>Player: {getPlayer()?.name} ({getPlayer()?.sid}), Opponent: {getOpponent()?.name} ({getOpponent()?.sid})</h3>
-                        <h3>Room: {roomId}</h3>
-                        <h3>Current Turn: {gameState.current_turn === playerSid ? 'Your turn' : 'Opponent\'s turn'}</h3>
-                        <h3>Cards left in deck: {gameState.deck_count}</h3>
-                        <div className="game-state">
-                            <div className="trump-card">
-                                <h3>Trump Card</h3>
-                                {renderCard(gameState.trump_card, false, 0)}
-                            </div>
-                            <div className="players">
-                                <div className="player">
-                                    <h3>Your Hand</h3>
-                                    <div className="hand">
-                                        {getPlayer()?.hand.map((card, index) => renderCard(card, true, index))}
-                                    </div>
-                                </div>
-                                <div className="opponent">
-                                    <h3>Opponent's Hand</h3>
-                                    <div className="hand">
-                                        {getOpponent()?.hand.map((_, index) => (
-                                            <div className="card-back" key={index}></div>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="table">
-                                <h3>Table</h3>
-                                <div className="cards">
-                                    <DropTargetComponent onDrop={(item) => {
-                                        if (gameState.current_turn === playerSid) {
-                                            if (item.isPlayerCard) {
-                                                playCard(item.index);
-                                            } else {
-                                                defendCard(item.index);
-                                            }
-                                        }
-                                    }} />
-                                    {gameState.active_cards?.map((card, index) => renderCard(card, false, index))}
-                                </div>
-                            </div>
-                            <div className="deck">
-                                <h3>Deck</h3>
-                                <div className="cards">
-                                    {gameState.deck?.map((card, index) => (
-                                        <div className="card-back" key={index}></div>
-                                    ))}
-                                </div>
-                            </div>
-                            <div className="beaten-cards">
-                                <h3>Beaten Cards</h3>
-                                <div className="cards">
-                                    {gameState.beaten_cards?.map((card, index) => renderCard(card, false, index))}
-                                </div>
-                            </div>
+                <div className="game-header">
+                    <h3>Player: {getPlayer()?.name} ({getPlayer()?.sid})</h3>
+                    <h3>Opponent: {getOpponent()?.name} ({getOpponent()?.sid})</h3>
+                    <h3>Room: {roomId}</h3>
+                    <h3>Current Turn: {gameState.current_turn === playerSid ? 'Your turn' : 'Opponent\'s turn'}</h3>
+                    <h3>Cards left in deck: {gameState.deck_count}</h3>
+                </div>
+                <div className="game-board">
+                    <div className="opponent-hand">
+                        <h4>Opponent's Hand</h4>
+                        <div className="hand">
+                            {getOpponent()?.hand.map((_, index) => (
+                                <div className="card-back" key={index}></div>
+                            ))}
                         </div>
                     </div>
-                ) : (
-                    <div>
-                        <h2>Waiting for game state...</h2>
+                    <div className="table">
+                        <h4>Table</h4>
+                        <div className="cards">
+                            <DropTargetComponent onDrop={(item) => {
+                                if (gameState.current_turn === playerSid) {
+                                    if (item.isPlayerCard) {
+                                        playCard(item.index);
+                                    } else {
+                                        defendCard(item.index);
+                                    }
+                                }
+                            }} />
+                            {gameState.active_cards?.map((card, index) => renderCard(card, false, index))}
+                        </div>
                     </div>
-                )}
+                    <div className="player-hand">
+                        <h4>Your Hand</h4>
+                        <div className="hand">
+                            {getPlayer()?.hand.map((card, index) => renderCard(card, true, index))}
+                        </div>
+                    </div>
+                </div>
+                <div className="game-footer">
+                    <div className="trump-card">
+                        <h4>Trump Card</h4>
+                        {renderCard(gameState.trump_card, false, 0)}
+                    </div>
+                    <div className="deck">
+                        <h4>Deck</h4>
+                        <div className="cards">
+                            {Array(gameState.deck_count).fill(null).map((_, index) => (
+                                <div className="card-back" key={index}></div>
+                            ))}
+                        </div>
+                    </div>
+                    <div className="beaten-cards">
+                        <h4>Beaten Cards</h4>
+                        <div className="cards">
+                            {gameState.beaten_cards?.map((card, index) => renderCard(card, false, index))}
+                        </div>
+                    </div>
+                </div>
             </div>
         </DndProvider>
     );
 };
-
 
 interface DropTargetComponentProps {
     onDrop: (item: any) => void;

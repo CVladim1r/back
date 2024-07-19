@@ -83,13 +83,13 @@ class Room:
             await player.websocket.send_json(message)
 
     async def start_game(self):
+        if len(self.players) < 2:
+            raise ValueError("Not enough players to start the game.")
+
         self.initialize_deck()
         self.trump_card = self.deck.pop()
         for player in self.players:
             player.hand = [self.deck.pop() for _ in range(6)]
-
-        if len(self.players) < 2:
-            raise ValueError("Not enough players to start the game.")
 
         self.attacking_player = random.choice(self.players).sid
         defending_players = [p.sid for p in self.players if p.sid != self.attacking_player]
@@ -168,6 +168,15 @@ def create_room(room_id: str):
         room.initialize_deck()
         rooms[room_id] = room
 
+def get_rooms_status() -> List[Dict[str, Any]]:
+    """
+    Возвращает список всех комнат с количеством игроков в каждой.
+    """
+    return [
+        {"room_id": room.room_id, "player_count": len(room.players)}
+        for room in rooms.values()
+    ]
+
 
 def add_player(room_id: str, player_sid: str, player_name: str, websocket: WebSocket) -> Player:
     if room_id not in rooms:
@@ -185,7 +194,7 @@ async def confirm_start_game(room_id: str):
 
 async def start_game(room_id: str):
     room = rooms[room_id]
-    if len(room.players) != 2:
+    if len(room.players) < 2:
         raise ValueError("Cannot start game: Not enough players")
     room.trump_card = room.deck.pop()
     room.deck.insert(0, room.trump_card)
@@ -195,7 +204,7 @@ async def start_game(room_id: str):
         room.defending_player = defending_players[0]
     else:
         raise ValueError("Cannot find defending player")
-    asyncio.create_task(room.start_game())
+    await room.start_game()
 
 async def handle_client_message(websocket: WebSocket, player_sid: str, data: Dict[str, Any]):
     room_id = data.get("room_id")

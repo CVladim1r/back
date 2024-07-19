@@ -1,3 +1,4 @@
+// src/types.ts
 export enum TypeCard {
   chervi = 'chervi',
   bubi = 'bubi',

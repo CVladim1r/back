@@ -1,64 +1,62 @@
 // src/api/ws.ts
-
-type EventCallback = (data?: any) => void;
-
 class WebSocketService {
     private socket: WebSocket | null = null;
-    private listeners: { [key: string]: EventCallback[] } = {};
+    private onOpenCallbacks: Array<() => void> = [];
+    private onCloseCallbacks: Array<() => void> = [];
+    private onMessageCallbacks: Array<(event: MessageEvent) => void> = [];
 
-    connect(roomId: string, playerSid: string, playerName: string): void {
-        if (this.socket && this.socket.readyState === WebSocket.OPEN) return; // Prevent multiple connections
+    connect(roomId: string, playerSid: string, playerName: string) {
         this.socket = new WebSocket(`ws://localhost:8000/ws/room=${roomId}&playerid=${playerSid}&playername=${playerName}`);
 
         this.socket.onopen = () => {
-            console.log("WebSocket connection opened.");
-            this.emit('open');
+            this.onOpenCallbacks.forEach(callback => callback());
+        };
+
+        this.socket.onmessage = (event) => {
+            this.onMessageCallbacks.forEach(callback => callback(event));
         };
 
         this.socket.onclose = () => {
-            console.log("WebSocket connection closed.");
-            this.emit('close');
+            this.onCloseCallbacks.forEach(callback => callback());
         };
 
-        this.socket.onmessage = (event: MessageEvent) => {
-            console.log("WebSocket message received:", event.data);
-            const data = JSON.parse(event.data);
-            this.emit('message', data);
-        };
-
-        this.socket.onerror = (error: Event) => {
-            console.error("WebSocket error:", error);
-            this.emit('error', error);
+        this.socket.onerror = (error) => {
+            console.log('WebSocket error:', error);
         };
     }
 
-    isConnected(): boolean {
-        return this.socket !== null && this.socket.readyState === WebSocket.OPEN;
+    isConnected() {
+        return this.socket?.readyState === WebSocket.OPEN;
     }
 
-    send(data: any): void {
-        if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+    onOpen(callback: () => void) {
+        this.onOpenCallbacks.push(callback);
+    }
+
+    onClose(callback: () => void) {
+        this.onCloseCallbacks.push(callback);
+    }
+
+    onMessage(callback: (event: MessageEvent) => void) {
+        this.onMessageCallbacks.push(callback);
+    }
+
+    offOpen(callback: () => void) {
+        this.onOpenCallbacks = this.onOpenCallbacks.filter(cb => cb !== callback);
+    }
+
+    offClose(callback: () => void) {
+        this.onCloseCallbacks = this.onCloseCallbacks.filter(cb => cb !== callback);
+    }
+
+    offMessage(callback: (event: MessageEvent) => void) {
+        this.onMessageCallbacks = this.onMessageCallbacks.filter(cb => cb !== callback);
+    }
+
+    send(data: any) {
+        if (this.socket?.readyState === WebSocket.OPEN) {
             this.socket.send(JSON.stringify(data));
-        } else {
-            console.error('WebSocket is not open to send data.');
         }
-    }
-
-    on(event: string, callback: EventCallback): void {
-        if (!this.listeners[event]) {
-            this.listeners[event] = [];
-        }
-        this.listeners[event].push(callback);
-    }
-
-    off(event: string, callback: EventCallback): void {
-        if (!this.listeners[event]) return;
-        this.listeners[event] = this.listeners[event].filter(cb => cb !== callback);
-    }
-
-    private emit(event: string, data?: any): void {
-        if (!this.listeners[event]) return;
-        this.listeners[event].forEach(callback => callback(data));
     }
 }
 

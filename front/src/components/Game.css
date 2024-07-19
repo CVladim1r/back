@@ -1,51 +1,50 @@
-/* src/App.css or src/components/Game.css */
-
+/* src/components/Game.css */
 .game {
-    text-align: center;
-}
-
-.players {
     display: flex;
-    justify-content: space-around;
-    margin-top: 20px;
+    flex-direction: column;
+    align-items: center;
+    padding: 10px;
 }
 
-.player, .opponent {
-    width: 45%;
+.game-header, .game-footer {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    margin-bottom: 10px;
 }
 
-.hand {
+.game-board {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    margin-bottom: 10px;
+}
+
+.opponent-hand, .player-hand, .table {
+    margin: 10px 0;
+}
+
+.hand, .cards {
     display: flex;
     justify-content: center;
     flex-wrap: wrap;
 }
 
-.card, .card-back {
-    width: 60px;
-    height: 90px;
-    border: 1px solid #000;
+.card-back, .drop-target {
+    width: 50px;
+    height: 70px;
+    background-color: grey;
     margin: 5px;
+}
+
+.trump-card, .deck, .beaten-cards {
     display: flex;
     align-items: center;
-    justify-content: center;
-    font-size: 18px;
-    border-radius: 5px;
-    background-color: white;
-    box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.3);
+    flex-direction: column;
+    margin: 5px;
 }
 
-.card-back {
-    background-color: #888;
-}
-
-.rank, .suit {
-    margin: 0;
-}
-
-.trump-card {
-    margin-top: 20px;
-}
-
-.trump-card .card {
-    margin: auto;
+h4 {
+    margin: 5px 0;
 }

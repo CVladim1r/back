@@ -22,17 +22,17 @@ async def websocket_endpoint(websocket: WebSocket, room_id: str, player_sid: str
 
         logger.info(f"Player {player_sid} (name: {player_name}) added to room {room_id}")
 
+        await notify_players(room_id)
+        logger.info(f"Players notified in room {room_id}")
+
         if len(rooms[room_id].players) == 2:
             await start_game(room_id)
             logger.info(f"Game started in room {room_id}")
 
-        await notify_players(room_id)
-        logger.info(f"Players notified in room {room_id}")
-
         while True:
             data = await websocket.receive_text()
             message = json.loads(data)
-            await handle_client_message(room_id, player_sid, message)
+            await handle_client_message(websocket, player_sid, message)
     
     except WebSocketDisconnect:
         logger.info(f"Player {player_sid} disconnected from room {room_id}")
