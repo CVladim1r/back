@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import RoomList from './RoomList';
-import { useMiniAppRaw } from '@tma.js/sdk-react';
 
 interface ConnectionProps {
     onConnect: (roomId: string, playerSid: string, playerName: string) => void;
@@ -9,7 +8,7 @@ interface ConnectionProps {
 const Connection: React.FC<ConnectionProps> = ({ onConnect }) => {
     const [roomId, setRoomId] = useState<string>('room1');
     const [playerName, setPlayerName] = useState<string>('');
-    const tg = useMiniAppRaw.name
+
     const connect = () => {
         const sid = `player${Math.floor(Math.random() * 10000)}`;
         onConnect(roomId, sid, playerName);

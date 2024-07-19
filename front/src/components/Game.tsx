@@ -18,7 +18,7 @@ const ItemTypes = {
     CARD: 'card'
 };
 
-const Game: React.FC<GameProps> = ({ roomId, playerSid, playerName, gameState }) => {
+const Game: React.FC<GameProps> = ({ roomId, playerSid, gameState }) => {
     const playCard = (cardIndex: number) => {
         if (gameState.current_turn === playerSid && gameState.current_turn === gameState.attacking_player) {
             WebSocketService.send({
