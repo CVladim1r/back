@@ -25,8 +25,15 @@ export interface Game {
   attacking_player: string;
   defending_player: string;
   active_cards: Card[];
+  beaten_cards: Card[];
   deck: Card[];
+  deck_count: number;
   winner?: string;
+}
+
+export interface ActiveCard extends Card {
+  isPlayerCard: boolean;
+  index: number;
 }
 
 export interface LocationState {

@@ -1,21 +1,9 @@
+// src/components/Connection.tsx
+
 import React, { useState, useEffect } from 'react';
 import WebSocketService from '../api/ws';
-
-interface Player {
-    sid: string;
-    name: string;
-    hand: any[];
-}
-
-interface GameState {
-    players: Player[];
-    trump_card: any;
-    current_turn: string;
-    attacking_player: string;
-    defending_player: string;
-    active_cards: any[];
-    winner?: string;
-}
+import Game from './Game';
+import { Game as GameState } from '../types';
 
 interface ConnectionProps {
     onConnect: (roomId: string, playerSid: string, playerName: string) => void;
@@ -38,9 +26,22 @@ const Connection: React.FC<ConnectionProps> = ({ onConnect }) => {
             setConnected(false);
         };
 
-        const handleMessage = (data: GameState) => {
-            setGameState(data);
+        const handleMessage = (event: MessageEvent) => {
+            if (!event.data) {
+                console.error("Received empty message");
+                return;
+            }
+        
+            try {
+                const data = JSON.parse(event.data);
+                console.log("Received game state:", data);
+                setGameState(data);
+            } catch (error) {
+                console.error("Error parsing WebSocket message:", error);
+            }
         };
+        
+        
 
         WebSocketService.on('open', handleOpen);
         WebSocketService.on('close', handleClose);
@@ -65,15 +66,15 @@ const Connection: React.FC<ConnectionProps> = ({ onConnect }) => {
             {connected ? (
                 <div>
                     <h2>Connected as {playerName} ({playerSid})</h2>
-                    {gameState && (
-                        <div>
-                            <h3>Players in room:</h3>
-                            <ul>
-                                {gameState.players.map(player => (
-                                    <li key={player.sid}>{player.name} ({player.sid})</li>
-                                ))}
-                            </ul>
-                        </div>
+                    {gameState ? (
+                        <Game
+                            roomId={roomId}
+                            playerSid={playerSid}
+                            playerName={playerName}
+                            gameState={gameState}
+                        />
+                    ) : (
+                        <h2>Waiting for game state...</h2>
                     )}
                 </div>
             ) : (
