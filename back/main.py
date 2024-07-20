@@ -1,39 +1,25 @@
-from fastapi import FastAPI, WebSocket, Request
+from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from starlette.middleware.cors import CORSMiddleware
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.responses import Response
+from core.config import settings
+from core.middleware import WebSocketCORSMiddleware
 from routers import api, ws
+import os
 
-app = FastAPI()
-
-origins = [
-    "http://localhost:3000",
-    "ws://localhost:3000",
-    "http://localhost:5174",
-    "ws://localhost:5174",
-]
+app = FastAPI(title=settings.app_name, debug=settings.debug)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-class WebSocketCORSMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
-        if request.url.path.startswith("/ws"):
-            response = Response()
-            response.headers['access-control-allow-origin'] = '*'
-            response.headers['access-control-allow-headers'] = '*'
-            response.headers['access-control-allow-methods'] = '*'
-            response.headers['access-control-allow-credentials'] = 'true'
-            if request.method == "OPTIONS":
-                return response
-            response = await call_next(request)
-            return response
-        return await call_next(request)
+if not os.getenv('TESTING'):
+    app.mount("/static", StaticFiles(directory="static"), name="static")
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 app.add_middleware(WebSocketCORSMiddleware)
 
@@ -46,4 +32,4 @@ async def read_root():
 
 if __name__ == '__main__':
     import uvicorn
-    uvicorn.run(app, host='0.0.0.0', port=8000)
+    uvicorn.run(app, host=settings.host, port=settings.port)

@@ -5,7 +5,7 @@ dotenv.config();
 
 const bot = new Telegraf(process.env.BOT_TOKEN);
 
-const WEB_APP_URL = "https://172.28.48.1:5173/";
+const WEB_APP_URL = "https://669a2ce1de7b10000855a355--durak-teniti.netlify.app/";
 
 bot.start((ctx) => {
     ctx.reply("Привет! Нажми на кнопку, чтобы запустить Mini App:", 
