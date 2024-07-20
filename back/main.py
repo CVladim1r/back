@@ -19,8 +19,6 @@ app.add_middleware(
 if not os.getenv('TESTING'):
     app.mount("/static", StaticFiles(directory="static"), name="static")
 
-app.mount("/static", StaticFiles(directory="static"), name="static")
-
 app.add_middleware(WebSocketCORSMiddleware)
 
 app.include_router(api.router, prefix="/api")
